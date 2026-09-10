@@ -10,16 +10,20 @@
 
   <Description>Adds single-bounce screen space diffuse global illumination.
 
-This is a gpu-heavy plugin, and you will experience a significant drop in fps when it is enabled. Various parameters can be changed in the plugin settings, including quality presets and GI intensity.
+This is a gpu-heavy plugin, and you will experience a significant drop in fps when it is enabled. Various parameters can be changed in Anomaly Shaders → SSGI → Settings (Rich HUD) or the Pulsar config dialog, including quality presets and GI intensity.
 
-Sampling is based on the SSILVB algorithm with a modified SVGF denoiser for denoising.</Description>
+Sampling is based on the SSILVB algorithm with a modified SVGF denoiser. Requires Anomaly Shader Framework.</Description>
+
+  <DependencyIds>
+    <Id>A9C29274-E447-49EE-881B-C980E6D190FD</Id>
+  </DependencyIds>
 
   <SourceDirectories>
-    <Directory>Prism.Render</Directory>
-    <Directory>Prism.Maths</Directory>
-    <Directory>Prism.Common</Directory>
+    <Directory>ClientPlugin</Directory>
   </SourceDirectories>
 
-  <AssetFolder>Prism.Render/Shaders/</AssetFolder>
+  <AssetFolder>ClientPlugin/Shaders</AssetFolder>
+  <Asset Name="AssetFolder" Path="ClientPlugin/Shaders" />
+  <Asset Name="AnomalyPack" Path="Assets/AnomalyPack" />
 
 </PluginData>

@@ -1,0 +1,17 @@
+{
+  "id": "prism.ssgi",
+  "name": "SSGI",
+  "passes": [
+    {
+      "id": "prism.ssgi.trace",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Trace.hlsl",
+      "compose": "PublishOnly",
+      "temporal": ["InColor"],
+      "output": "pass.prism.ssgi.trace",
+      "binds": [
+        { "catalog": "litMips", "slot": 7 }
+      ]
+    }
+  ]
+}

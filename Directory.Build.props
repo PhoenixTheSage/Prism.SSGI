@@ -1,9 +1,20 @@
 <Project>
   <PropertyGroup>
-    <!-- Folder containing SpaceEngineers.exe -->
-    <Bin64>C:\Program Files (x86)\Steam\steamapps\common\SpaceEngineers\Bin64</Bin64>
+    <Bin64></Bin64>
+    <Pulsar></Pulsar>
+  </PropertyGroup>
 
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+  <Import Project="$(MSBuildThisFileDirectory)Directory.Build.props.user"
+          Condition="Exists('$(MSBuildThisFileDirectory)Directory.Build.props.user')" />
+
+  <PropertyGroup>
+    <_SteamAppInstallLocation Condition=" '$(Bin64)' == '' AND $([MSBuild]::IsOSPlatform('Windows')) ">$(registry:HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 244850@InstallLocation)</_SteamAppInstallLocation>
+    <Bin64 Condition=" '$(Bin64)' == '' AND '$(_SteamAppInstallLocation)' != '' ">$(_SteamAppInstallLocation)\Bin64</Bin64>
+    <Bin64 Condition=" '$(Bin64)' == '' AND Exists('T:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64') ">T:\SteamLibrary\steamapps\common\SpaceEngineers\Bin64</Bin64>
+    <Bin64 Condition=" '$(Bin64)' == '' AND Exists('C:\Program Files (x86)\Steam\steamapps\common\SpaceEngineers\Bin64') ">C:\Program Files (x86)\Steam\steamapps\common\SpaceEngineers\Bin64</Bin64>
+
+    <_GameRoot Condition=" '$(Pulsar)' == '' AND '$(Bin64)' != '' ">$([System.IO.Path]::GetFullPath('$(Bin64)\..'))</_GameRoot>
+    <Pulsar Condition=" '$(Pulsar)' == '' AND '$(_GameRoot)' != '' AND Exists('$(_GameRoot)\Pulsar\Legacy.exe') ">$(_GameRoot)\Pulsar</Pulsar>
+    <Pulsar Condition=" '$(Pulsar)' == '' AND Exists('$(USERPROFILE)\AppData\Roaming\Pulsar\Legacy.exe') ">$(USERPROFILE)\AppData\Roaming\Pulsar</Pulsar>
   </PropertyGroup>
 </Project>
