@@ -77,7 +77,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
     return ColorAndVariance[pixelPos];
 #endif
 
-    if (!IsForeground(LinearDepth[pixelPos]))
+    if (!IsForeground(LoadWorldDepth(pixelPos)))
     {
 #if ENABLE_BLENDED_OUTPUT
         blendedColor = 0;
@@ -101,6 +101,8 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
     float phiDepth = max(fwidth(centerDepth), 1e-8) * AtrousStepSize;
     float phiNormal = SIGMA_N;
     float phiIllumination = SIGMA_LUM * sqrt(max(0, centerVariance + 1e-10));
+    // Sparse GI hits stay pin-sharp if luminance sigma is only the 0.05 floor.
+    phiIllumination = max(phiIllumination, 0.35 * max(centerLum, 1e-4));
 
     static const int radius = 2;
     for (int y = -radius; y <= radius; y++)
@@ -109,7 +111,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
         {
             const int2 samplePos = pixelPos + int2(x, y) * AtrousStepSize;
 
-            if (any(samplePos < 0 || samplePos >= ScreenSize) || all(samplePos == pixelPos) || !IsForeground(LinearDepth[samplePos]))
+            if (any(samplePos < 0 || samplePos >= ScreenSize) || all(samplePos == pixelPos) || !IsForeground(LoadWorldDepth(samplePos)))
                 continue;
 
             const float depth = LoadWorldDepth(samplePos);

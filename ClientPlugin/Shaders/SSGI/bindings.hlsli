@@ -1,6 +1,8 @@
 #ifndef SSGI2_BINDINGS
 #define SSGI2_BINDINGS
 
+#pragma pack_matrix(row_major)
+
 SamplerState DefaultSampler : register(s0);
 SamplerState PointSampler   : register(s1);
 SamplerState LinearSampler  : register(s2);
@@ -11,13 +13,13 @@ cbuffer Constants : register(b0)
     float4x4 PrevViewMatrix;
 
     float2 ScreenSize;
+    float2 SceneSize;
     float MaxHistory;
     int AtrousStepSize;
 
     float Farplane;
-    uint _pad0;
-    uint _pad1;
-    uint _pad2;
+    float _pad0;
+    float2 _pad1;
 };
 
 Texture2D<float4> GBuffer0 : register(t0);
@@ -35,12 +37,14 @@ float3 UnpackNormal(float2 packed)
 
 float3 LoadViewNormal(uint2 pixel)
 {
-    return UnpackNormal(GBuffer1[pixel].xy);
+    float2 uv = (float2(pixel) + 0.5) / max(ScreenSize, 1);
+    return UnpackNormal(GBuffer1[uint2(uv * SceneSize)].xy);
 }
 
 float LoadWorldDepth(uint2 pixel)
 {
-    return LinearDepth[pixel];
+    float2 uv = (float2(pixel) + 0.5) / max(ScreenSize, 1);
+    return LinearDepth[uint2(uv * SceneSize)];
 }
 
 #endif

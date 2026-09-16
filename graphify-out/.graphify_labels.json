@@ -1,0 +1,18 @@
+{
+  "0": "SSGIPass",
+  "1": "FileShaderCompiler",
+  "2": "Trace.hlsl",
+  "3": "SSGIConfig",
+  "4": "AnomalyHook",
+  "5": "StatusScreen",
+  "6": "GuiScreenSSGIConfig",
+  "7": "HLSL Skill",
+  "8": "VerticalAlignment",
+  "9": "ClientPlugin.Config",
+  "10": "BufferMapping",
+  "11": "Plugin",
+  "12": "AnomalyTerminalHook",
+  "13": "RenderTraceBind",
+  "14": "SSGIStatus",
+  "15": "ClientPlugin"
+}

@@ -1,0 +1,188 @@
+{
+  "Assets/AnomalyPack/anomaly.json": {
+    "mtime": 1789070494.284678,
+    "seen": 1789545871.112948,
+    "ast_hash": "dc80006e5fdd9b5edd1deb8483ff66d2",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Anomaly/AnomalyHook.cs": {
+    "mtime": 1789542612.1671996,
+    "seen": 1789545871.112948,
+    "ast_hash": "212465c7866510fbde6cbccf6b48c945",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Anomaly/RenderTraceBind.cs": {
+    "mtime": 1788868833.3804648,
+    "seen": 1789545871.112948,
+    "ast_hash": "2a073990ccc46eab1e9bbe71ab01fe4a",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/ClientPlugin.csproj": {
+    "mtime": 1789023449.1894684,
+    "seen": 1789545871.112948,
+    "ast_hash": "cf299cf9c09bf98993ff6be9d6bc52b7",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Common/BufferMapping.cs": {
+    "mtime": 1788766972.416726,
+    "seen": 1789545871.112948,
+    "ast_hash": "51c038e960ad3a2d8c47879b4656668f",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Common/Extensions.cs": {
+    "mtime": 1788767362.1240704,
+    "seen": 1789545871.112948,
+    "ast_hash": "089ebcfc2d36d625d15883ad959cdc54",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Common/FileShaderCompiler.cs": {
+    "mtime": 1788766971.8513486,
+    "seen": 1789545871.112948,
+    "ast_hash": "09f60441d30ea60e38cb0c02efa1d001",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Common/IShaderCompiler.cs": {
+    "mtime": 1788766972.104333,
+    "seen": 1789545871.112948,
+    "ast_hash": "8f933dd66d9fd429e2760eb18eeda9e5",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Config/ConfigPropertyAttribute.cs": {
+    "mtime": 1788766971.364387,
+    "seen": 1789545871.112948,
+    "ast_hash": "8345cca74faa596b46190a1b2041a3bb",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Config/FloatConfigPropertyAttribute.cs": {
+    "mtime": 1788766971.5414798,
+    "seen": 1789545871.112948,
+    "ast_hash": "bd1d3bf17759431d6bbc26b35877b486",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Config/IntConfigPropertyAttribute.cs": {
+    "mtime": 1788766972.0067325,
+    "seen": 1789545871.112948,
+    "ast_hash": "33fd3a3995f468dd02d41c0690f43526",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Config/SSGIConfig.cs": {
+    "mtime": 1789071124.9277043,
+    "seen": 1789545871.112948,
+    "ast_hash": "019f0166a134e7e86882357c5f0afcfc",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Config/SSGIQualityPreset.cs": {
+    "mtime": 1788767265.801055,
+    "seen": 1789545871.112948,
+    "ast_hash": "6d531d03ede99b32112534f336a66122",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Gui/Controls/HorizontalAlignment.cs": {
+    "mtime": 1788766973.6973703,
+    "seen": 1789545871.112948,
+    "ast_hash": "05ae313442472cdca07c2e8097af2a08",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Gui/Controls/UniformGrid.cs": {
+    "mtime": 1788766973.3734963,
+    "seen": 1789545871.112948,
+    "ast_hash": "0f0e53d492af5253e5d2f539e7ddb63e",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Gui/Controls/VerticalAlignment.cs": {
+    "mtime": 1788766973.9273686,
+    "seen": 1789545871.112948,
+    "ast_hash": "fa24e433875ab3424d6b53d996f5f6c5",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Gui/GuiScreenSSGIConfig.cs": {
+    "mtime": 1789542643.6105933,
+    "seen": 1789545871.112948,
+    "ast_hash": "8c854f8e66c227d02573e05025e64427",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Gui/StatusScreen.cs": {
+    "mtime": 1789542609.1666722,
+    "seen": 1789545871.112948,
+    "ast_hash": "c621746a942f48f5e362bf1839f83476",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Plugin.cs": {
+    "mtime": 1789032300.332207,
+    "seen": 1789545871.112948,
+    "ast_hash": "c5ce49fbea2b1dcfddb3f3ae183fd013",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/RichHud/AnomalyTerminalHook.cs": {
+    "mtime": 1789542652.8668456,
+    "seen": 1789545871.112948,
+    "ast_hash": "6bd364cd5d183bbc333607ce1dfea155",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/SSGI/SSGIPass.cs": {
+    "mtime": 1789549971.2869322,
+    "seen": 1789549989.8358545,
+    "ast_hash": "82b3c51571941a8fb17ffe6c74bd7fe9",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/SSGI/SSGIStatus.cs": {
+    "mtime": 1789545621.7007425,
+    "seen": 1789545871.112948,
+    "ast_hash": "e92c45ea3f7a058d9e6b60dd023fcf6e",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Tools/GameAssembliesToPublicize.cs": {
+    "mtime": 1788771299.8645525,
+    "seen": 1789545871.112948,
+    "ast_hash": "8b41e198b29d2c16c072a0414a9d2a52",
+    "semantic_hash": ""
+  },
+  "ClientPlugin/Tools/IgnoresAccessChecksToAttribute.cs": {
+    "mtime": 1788771299.5859582,
+    "seen": 1789545871.112948,
+    "ast_hash": "b9ce60fb4da37b1b9c64c83b8255e89f",
+    "semantic_hash": ""
+  },
+  "Prism.Render.sln": {
+    "mtime": 1788767497.206854,
+    "seen": 1789545871.112948,
+    "ast_hash": "7c23313603a3d099b9574718f50ae85d",
+    "semantic_hash": ""
+  },
+  ".agents/skills/a5c-ai-babysitter-hlsl/README.md": {
+    "mtime": 1788516266.152685,
+    "seen": 1789545871.112948,
+    "ast_hash": "62ae4bf9273b701007be246a7a3eb922",
+    "semantic_hash": ""
+  },
+  ".agents/skills/a5c-ai-babysitter-hlsl/SKILL.md": {
+    "mtime": 1788829828.4222832,
+    "seen": 1789545871.112948,
+    "ast_hash": "5fd078b07385e0a22c53960efce5ae6a",
+    "semantic_hash": ""
+  },
+  ".cursor/skills/a5c-ai-babysitter-hlsl/README.md": {
+    "mtime": 1788516266.152685,
+    "seen": 1789545871.112948,
+    "ast_hash": "62ae4bf9273b701007be246a7a3eb922",
+    "semantic_hash": ""
+  },
+  ".cursor/skills/a5c-ai-babysitter-hlsl/SKILL.md": {
+    "mtime": 1788516266.149358,
+    "seen": 1789545871.112948,
+    "ast_hash": "5fd078b07385e0a22c53960efce5ae6a",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1789540258.5652132,
+    "seen": 1789545871.112948,
+    "ast_hash": "8b6bd78c362c71937f3460dc4c58d812",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1789549984.2810712,
+    "seen": 1789549989.8369875,
+    "ast_hash": "5afba59a8dbf81b527b9a9c6580a0b53",
+    "semantic_hash": ""
+  }
+}

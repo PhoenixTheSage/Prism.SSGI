@@ -1,5 +1,6 @@
 ﻿using ClientPlugin.Config;
 using ClientPlugin.Gui.Controls;
+using ClientPlugin.SSGI;
 using Sandbox;
 using Sandbox.Graphics.GUI;
 using System;
@@ -181,9 +182,16 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
         // add footer buttons
         {
             float yPos = (Size!.Value.Y * 0.5f) - (MyGuiConstants.SCREEN_CAPTION_DELTA_Y / 2f);
+            var status = new MyGuiControlButton(onButtonClick: _ => SSGIStatus.Show())
+            {
+                Position = new Vector2(-0.12f, yPos),
+                Text = "Status",
+                OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM,
+            };
+            AddControl(status);
             var button = new MyGuiControlButton(onButtonClick: OnSaveButtonClick)
             {
-                Position = new Vector2(0, yPos),
+                Position = new Vector2(0.12f, yPos),
                 Text = "Save",
                 OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_CENTER_AND_VERTICAL_BOTTOM,
             };

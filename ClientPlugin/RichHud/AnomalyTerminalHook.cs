@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using ClientPlugin.Anomaly;
 using ClientPlugin.Config;
+using ClientPlugin.SSGI;
 using VRage.Utils;
 
 namespace ClientPlugin.RichHud;
@@ -15,6 +16,7 @@ internal static class AnomalyTerminalHook
     public const string RegistryTypeName = "ClientPlugin.RichHud.TerminalConfigRegistry";
     public const string FolderTitle = "SSGI";
     public const string SettingsPage = "Settings";
+    public const string StatusPage = "Status";
 
     static readonly object Gate = new();
     static bool _installed;
@@ -26,18 +28,21 @@ internal static class AnomalyTerminalHook
             if (_installed)
                 return true;
 
-            var page = RequestPageUnlocked();
-            if (page == null)
+            var settings = RequestPageUnlocked(SettingsPage);
+            if (settings == null)
                 return false;
 
-            Populate(page);
+            PopulateSettings(settings);
+            var status = RequestPageUnlocked(StatusPage);
+            if (status != null)
+                PopulateStatus(status);
             _installed = true;
             MyLog.Default.WriteLine("SSGI: Rich HUD page under Anomaly Shaders / " + FolderTitle + " / " + SettingsPage);
             return true;
         }
     }
 
-    static object RequestPageUnlocked()
+    static object RequestPageUnlocked(string pageTitle)
     {
         Assembly[] assemblies;
         try
@@ -72,7 +77,9 @@ internal static class AnomalyTerminalHook
             try
             {
                 if (requestFolder != null)
-                    return requestFolder.Invoke(null, new object[] { FolderTitle, SettingsPage });
+                    return requestFolder.Invoke(null, new object[] { FolderTitle, pageTitle });
+                if (pageTitle != SettingsPage)
+                    return null;
                 return request.Invoke(null, new object[] { FolderTitle });
             }
             catch (Exception e)
@@ -85,7 +92,7 @@ internal static class AnomalyTerminalHook
         return null;
     }
 
-    static void Populate(object page)
+    static void PopulateSettings(object page)
     {
         var config = Plugin.SSGIConfig;
         if (config == null)
@@ -151,6 +158,18 @@ internal static class AnomalyTerminalHook
             (Func<int>)(() => config.DenoiserBlurIterations),
             (Action<int>)(v => Set(config, () => config.DenoiserBlurIterations = v)),
             "À-trous blur iterations.");
+        Invoke(type, page, "Button", "Show Status",
+            (Action)SSGIStatus.Show,
+            "Compile, Anomaly bind, pass size, and last skip reason.");
+    }
+
+    static void PopulateStatus(object page)
+    {
+        var type = page.GetType();
+        Invoke(type, page, "Category", "Debug");
+        Invoke(type, page, "Button", "Show Status",
+            (Action)SSGIStatus.Show,
+            "Compile, Anomaly bind, pass size, and last skip reason.");
     }
 
     static void Set(SSGIConfig config, Action apply)

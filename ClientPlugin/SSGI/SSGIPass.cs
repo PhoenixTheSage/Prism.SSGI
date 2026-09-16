@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 using ClientPlugin.Anomaly;
 using ClientPlugin.Common;
 using ClientPlugin.Config;
@@ -26,15 +27,20 @@ public static class SSGIPass
         public Matrix ViewMatrix;
         public Matrix PrevViewMatrix;
         public Vector2 ScreenSize;
+        public Vector2 SceneSize;
         public float MaxHistory;
         public int AtrousStepSize;
         public float Farplane;
-        private uint _pad0;
-        private uint _pad1;
-        private uint _pad2;
+        private float _pad0;
+        private Vector2 _pad1;
     }
 
     static bool _compileError;
+    static string _denoiserError = "";
+    static string _skip = "not drawn";
+    static int _beforeCount;
+    static int _afterCount;
+    static int _traceSrvOk;
     static bool _ready;
     static PixelShader _psSvgfTemporal;
     static PixelShader _psSvgfAtrous;
@@ -50,16 +56,28 @@ public static class SSGIPass
     static Matrix _prevViewMatrix = Matrix.Identity;
     static Vector2I _size;
 
+    public static bool Ready => _ready;
+    public static bool DenoiserCompileError => _compileError;
+    public static string DenoiserError => Volatile.Read(ref _denoiserError) ?? "";
+    public static string LastSkip => Volatile.Read(ref _skip) ?? "not drawn";
+    public static int BeforeFrames => Volatile.Read(ref _beforeCount);
+    public static int AfterFrames => Volatile.Read(ref _afterCount);
+    public static bool LastTraceSrv => Volatile.Read(ref _traceSrvOk) != 0;
+    public static Vector2I PassResolution => _size;
+
     public static void Init()
     {
         if (_ready)
             return;
 
-        RecreateTargets();
         ReloadShaders();
         AnomalyHook.RegisterLifetime(OnResolutionChanged, OnDeviceEnd);
         AnomalyHook.RequestSrv(AnomalyHook.TraceProgramId, AnomalyHook.LitMipsName, 7);
+        AnomalyHook.RequestSrv(AnomalyHook.TraceProgramId, "hiZ", 8);
+        AnomalyHook.RequestLitMips(3);
         AnomalyHook.SetEnabled(AnomalyHook.TraceProgramId, Plugin.SSGIConfig.Enabled);
+        AnomalyHook.SetScale(AnomalyHook.TraceProgramId, TraceScale());
+        RecreateTargets();
         RegisterOwnedPasses();
         _ready = true;
     }
@@ -83,12 +101,13 @@ public static class SSGIPass
     {
         DisposeTargets();
         _ready = false;
+        NoteSkip("device end");
     }
 
     static unsafe void RecreateTargets()
     {
         DisposeTargets();
-        Vector2I res = MyRender11.ResolutionI;
+        Vector2I res = PassSize();
         _size = res;
         _cbv = MyManagers.Buffers.CreateConstantBuffer("Prism.SSGI.CbvDenoiser",
             MathHelper.Align(sizeof(DenoiserCb), 16), usage: ResourceUsage.Dynamic, isGlobal: true);
@@ -130,11 +149,14 @@ public static class SSGIPass
             _psCopyBlend = compiler.CompilePixel(device, "SSGI/Denoiser/copyblend.hlsl", "ps",
                 new ShaderMacro("VARIANCE_GUIDED", 1));
             _compileError = false;
+            Volatile.Write(ref _denoiserError, "");
         }
         catch (Exception e)
         {
 #if DEV
             _compileError = true;
+            Volatile.Write(ref _denoiserError, e.GetType().Name + ": " + e.Message);
+            NoteSkip("denoiser compile failed");
             MyLog.Default.WriteLine(e);
             MySandboxGame.Static.Invoke(() =>
             {
@@ -156,17 +178,43 @@ public static class SSGIPass
     static void BeforeFullscreen(object ctx)
     {
         if (_compileError || !_ready)
+        {
+            NoteSkip(_compileError ? "denoiser compile failed" : "not ready");
             return;
+        }
 
         var config = Plugin.SSGIConfig;
+        if (config == null)
+        {
+            NoteSkip("config missing");
+            return;
+        }
+
         AnomalyHook.SetEnabled(AnomalyHook.TraceProgramId, config.Enabled);
+        AnomalyHook.SetScale(AnomalyHook.TraceProgramId, TraceScale());
+        if (!config.Enabled)
+        {
+            NoteSkip("disabled");
+            return;
+        }
+
+        EnsureSize();
         WriteTraceUniforms();
+        Interlocked.Increment(ref _beforeCount);
     }
 
     static void AfterFullscreen(object ctx)
     {
-        if (_compileError || !_ready || !Plugin.SSGIConfig.Enabled)
+        if (_compileError || !_ready || Plugin.SSGIConfig == null || !Plugin.SSGIConfig.Enabled)
+        {
+            if (_compileError)
+                NoteSkip("denoiser compile failed");
+            else if (!_ready)
+                NoteSkip("not ready");
+            else if (Plugin.SSGIConfig == null || !Plugin.SSGIConfig.Enabled)
+                NoteSkip("disabled");
             return;
+        }
 
         RenderTraceBind.Begin("SSGI.AfterFullscreen");
         try
@@ -189,10 +237,20 @@ public static class SSGIPass
         EnsureSize();
         var rc = AnomalyHook.GetRenderContext(ctx);
         if (rc == null || !rc.IsInitialized)
+        {
+            NoteSkip("no deferred rc");
             return;
+        }
+        // AfterLighting runs on lighting's deferred list. LBuffer / GBuffer
+        // are still MRT slots; BindCommon samples them as SRVs.
+        ClearOm(rc);
         var noisySrv = AnomalyHook.TryGetSrv(AnomalyHook.TraceOutputName);
+        Volatile.Write(ref _traceSrvOk, noisySrv != null ? 1 : 0);
         if (noisySrv == null)
+        {
+            NoteSkip("trace output missing");
             return;
+        }
 
         IBorrowedRtvTexture borrowed = null;
         IRtvTexture noisyRtv = noisySrv as IRtvTexture;
@@ -209,20 +267,41 @@ public static class SSGIPass
         DenoiseVarianceGuided(rc, noisyRtv, _historyTexture, MyGBuffer.Main.LBuffer);
         borrowed?.Release();
 
-        rc.CopyResource(MyGBuffer.Main.GBuffer1, _prevGBuffer1);
+        CopyReplace(rc, MyGBuffer.Main.GBuffer1, _prevGBuffer1, shouldStretch: true, pointFilter: true);
         var linearDepth = AnomalyHook.TryGetSrv("linearDepth");
         if (linearDepth != null)
-            CopyReplace(rc, linearDepth, _prevDepthTex);
+            CopyReplace(rc, linearDepth, _prevDepthTex, shouldStretch: true, pointFilter: true);
 
         AnomalyHook.TryPublishExisting(_historyPublished, AnomalyHook.HistoryName, _historyTexture, _size.X, _size.Y);
         AnomalyHook.TryPublishExisting(_prevDepthPublished, AnomalyHook.PrevDepthName, _prevDepthTex, _size.X, _size.Y);
         Unbind(rc);
+        Interlocked.Increment(ref _afterCount);
+        NoteSkip("ok");
+    }
+
+    static void NoteSkip(string reason)
+    {
+        Volatile.Write(ref _skip, reason ?? "unknown");
     }
 
     static void EnsureSize()
     {
-        if (_size != MyRender11.ResolutionI)
+        if (_size != PassSize())
             RecreateTargets();
+    }
+
+    static float TraceScale()
+    {
+        return Plugin.SSGIConfig?.TraceScale() ?? 0.5f;
+    }
+
+    static Vector2I PassSize()
+    {
+        if (AnomalyHook.TryGetOutputSize(AnomalyHook.TraceProgramId, out var w, out var h))
+            return new Vector2I(w, h);
+        var full = MyRender11.ResolutionI;
+        var div = TraceScale() <= 0.25f ? 4 : 2;
+        return new Vector2I(Math.Max(1, full.X / div), Math.Max(1, full.Y / div));
     }
 
     static void WriteTraceUniforms()
@@ -265,7 +344,8 @@ public static class SSGIPass
             {
                 ViewMatrix = env.Matrices.ViewAt0,
                 PrevViewMatrix = _prevViewMatrix,
-                ScreenSize = MyRender11.ResolutionF,
+                ScreenSize = new Vector2(_size.X, _size.Y),
+                SceneSize = MyRender11.ResolutionF,
                 MaxHistory = MathHelper.Clamp(config.DenoiserMaxHistory, 0, 1000),
                 AtrousStepSize = atrousStepSize,
                 Farplane = env.Matrices.FarClipping,
@@ -283,6 +363,7 @@ public static class SSGIPass
         rc.SetRasterizerState(MyRasterizerStateManager.NocullRasterizerState);
         rc.SetDepthStencilState(MyDepthStencilStateManager.IgnoreDepthStencil);
         rc.PixelShader.SetSamplers(0, MySamplerStateManager.StandardSamplers);
+        rc.PixelShader.SetSampler(2, MySamplerStateManager.Linear);
         rc.PixelShader.SetConstantBuffer(0, _cbv);
         rc.PixelShader.SetSrv(0, MyGBuffer.Main.GBuffer0);
         rc.PixelShader.SetSrv(1, MyGBuffer.Main.GBuffer1);
@@ -310,8 +391,9 @@ public static class SSGIPass
             rc.PixelShader.SetSrv(8, _prevDepthTex);
             rc.PixelShader.SetSrv(9, _prevGBuffer1);
             rc.PixelShader.SetSrv(10, _prevMomentsAndHistoryLength);
+            ClearOm(rc);
             rc.SetRtvs(new[] { tempRtv.Rtv, tempRtvMomentsAndHistoryLength.Rtv });
-            MyScreenPass.DrawFullscreenQuad(rc);
+            DrawPassQuad(rc);
             rc.SetRtvNull();
             rc.PixelShader.SetSrv(10, null);
 
@@ -336,8 +418,9 @@ public static class SSGIPass
                 rc.SetBlendState(MyBlendStateManager.BlendReplace);
                 rc.PixelShader.Set(_psSvgfAtrous);
                 rc.PixelShader.SetSrv(5, atrousInput);
+                ClearOm(rc);
                 rc.SetRtv(atrousOutput);
-                MyScreenPass.DrawFullscreenQuad(rc);
+                DrawPassQuad(rc);
                 rc.SetRtvNull();
 
                 if (i == iterations - 1)
@@ -350,14 +433,26 @@ public static class SSGIPass
         tempRtv.Release();
     }
 
+    // GAP: Slice AI — Keen DrawFullscreenQuad() with no viewport calls
+    // SetScreenViewport(). Scaled SVGF RTs then store only the top-left of
+    // UV 0–1, so GI lights stretch with quality. Destination:
+    // FullscreenPassRegistry.DrawFullscreen(rc, width, height).
+    static void DrawPassQuad(MyRenderContext rc)
+    {
+        MyScreenPass.DrawFullscreenQuad(rc, new MyViewport(_size.X, _size.Y));
+    }
+
     static void CompositeAdditive(MyRenderContext rc, IRtvTexture filtered, IRtvTexture history, IRtvTexture output)
     {
         rc.CopyResource(filtered, history);
+        UpdateDenoiserCb(rc, 0, false);
         rc.SetBlendState(MyBlendStateManager.BlendAdditive);
+        rc.PixelShader.SetConstantBuffer(0, _cbv);
         rc.PixelShader.Set(_psCopyBlend);
         rc.PixelShader.SetSrv(5, history);
+        ClearOm(rc);
         rc.SetRtv(output);
-        MyScreenPass.DrawFullscreenQuad(rc);
+        MyScreenPass.DrawFullscreenQuad(rc, new MyViewport(output.Size.X, output.Size.Y));
         rc.SetRtvNull();
         rc.PixelShader.SetSrv(5, null);
     }
@@ -369,7 +464,7 @@ public static class SSGIPass
 
     static void Unbind(MyRenderContext rc)
     {
-        rc.SetRtvNull();
+        ClearOm(rc);
         for (var i = 0; i <= 10; i++)
             rc.PixelShader.SetSrv(i, null);
         rc.PixelShader.SetConstantBuffer(0, null);
@@ -377,26 +472,35 @@ public static class SSGIPass
         rc.SetBlendState(null);
     }
 
+    static void ClearOm(MyRenderContext rc)
+    {
+        rc.ResetTargets();
+        if (rc.DeviceContext != null)
+            rc.DeviceContext.OutputMerger.SetTargets((RenderTargetView)null);
+        rc.SetRtvNull();
+    }
+
     static void CopyReplace(MyRenderContext rc, ISrvBindable source, IRtvBindable destination,
-        MyViewport? viewport = null, bool shouldStretch = false)
+        MyViewport? viewport = null, bool shouldStretch = false, bool pointFilter = false)
     {
         rc.SetBlendState(null);
         rc.SetInputLayout(null);
+        var filter = pointFilter ? MySamplerStateManager.Point : MySamplerStateManager.Linear;
+        rc.PixelShader.SetSampler(0, filter);
+        rc.PixelShader.SetSampler(2, filter);
         if (source.Size != destination.Size || shouldStretch)
         {
             if (shouldStretch)
                 rc.PixelShader.Set(MyCopyToRT.m_stretchPs);
             else
-            {
                 rc.PixelShader.Set(MyCopyToRT.m_copyFilterPs);
-                rc.PixelShader.SetSampler(2, MySamplerStateManager.Linear);
-            }
         }
         else
         {
             rc.PixelShader.Set(MyCopyToRT.m_copyPs);
         }
 
+        ClearOm(rc);
         rc.SetRtv(destination);
         rc.SetDepthStencilState(MyDepthStencilStateManager.IgnoreDepthStencil);
         rc.PixelShader.SetSrv(0, source);

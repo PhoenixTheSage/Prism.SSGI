@@ -15,16 +15,16 @@ public class SSGIConfig
     public float GIIntensity { get; set; } = 5;
 
     [IntConfigProperty("Input Prefiltering", 0, 4, 3, "More prefiltering improves temporal stability but increases light leaking.")]
-    public int InputMipLevel { get; set; } = 3;
+    public int InputMipLevel { get; set; } = 2;
 
     [IntConfigProperty("Slices", 1, 32, 2, "Increases quality at a significant performance cost.")]
-    public int SliceCount { get; set; } = 2;
+    public int SliceCount { get; set; } = 1;
 
     [IntConfigProperty("Steps", 1, 64, 16, "Increases quality at a significant performance cost.")]
-    public int StepCount { get; set; } = 16;
+    public int StepCount { get; set; } = 8;
 
     [FloatConfigProperty("Radius", 0, 15, 7.5f, "Approximate range in meters.")]
-    public float Radius { get; set; } = 10;
+    public float Radius { get; set; } = 7.5f;
 
     [FloatConfigProperty("ExpFactor", 1, 2, 1.5f, "Controls sample distribution.\nHigher values cause more samples to be placed near the pixel.")]
     public float ExpFactor { get; set; } = 1.5f;
@@ -33,13 +33,13 @@ public class SSGIConfig
     public float Thickness { get; set; } = 1;
 
     [IntConfigProperty("Denoiser Temporal History", 0, 50, 20, "Sets the maximum accumulated history length.\nHigher values increase stability at the cost of slower reaction to lighting changes.")]
-    public int DenoiserMaxHistory { get; set; } = 20;
+    public int DenoiserMaxHistory { get; set; } = 16;
 
     //[IntConfigProperty("Denoiser Blur Radius", 0, 32, 16, "Sets the maximum blur radius.\nHigher values can lower noise but causes the lighting to look flatter.")]
     public float DenoiserBlurRadius { get; set; } = 16;
 
     [IntConfigProperty("Denoiser Blur Iterations", 0, 7, 5, "Sets the maximum blur iterations.\nHigher values can lower noise but causes the lighting to look flatter.")]
-    public int DenoiserBlurIterations { get; set; } = 5;
+    public int DenoiserBlurIterations { get; set; } = 3;
 
     public SSGIQualityPreset DetectPreset()
     {
@@ -50,6 +50,12 @@ public class SSGIConfig
         }
 
         return SSGIQualityPreset.Custom;
+    }
+
+    /// <summary>Low is quarter-res; Medium / High / Custom are half-res.</summary>
+    public float TraceScale()
+    {
+        return DetectPreset() == SSGIQualityPreset.Low ? 0.25f : 0.5f;
     }
 
     public void ApplyPreset(SSGIQualityPreset preset)
@@ -65,41 +71,41 @@ public class SSGIConfig
 
     public static readonly QualityPreset[] Presets =
     {
-        new QualityPreset // Low
+        new QualityPreset // Low — quarter-res Trace + 2 à-trous
         {
             GIIntensity = 5,
-            InputMipLevel = 4,
+            InputMipLevel = 2,
             SliceCount = 1,
-            StepCount = 8,
+            StepCount = 4,
             Radius = 5.0f,
             ExpFactor = 1.5f,
             Thickness = 1.0f,
-            DenoiserMaxHistory = 24,
-            DenoiserBlurIterations = 5,
+            DenoiserMaxHistory = 16,
+            DenoiserBlurIterations = 2,
         },
-        new QualityPreset // Medium
+        new QualityPreset // Medium — half-res, 1 temporal slice
         {
             GIIntensity = 5,
-            InputMipLevel = 3,
-            SliceCount = 2,
-            StepCount = 16,
+            InputMipLevel = 2,
+            SliceCount = 1,
+            StepCount = 8,
             Radius = 7.5f,
             ExpFactor = 1.5f,
             Thickness = 1.0f,
-            DenoiserMaxHistory = 20,
-            DenoiserBlurIterations = 5,
+            DenoiserMaxHistory = 16,
+            DenoiserBlurIterations = 3,
         },
-        new QualityPreset // High
+        new QualityPreset // High — half-res, 2 slices
         {
             GIIntensity = 5,
-            InputMipLevel = 3,
-            SliceCount = 4,
-            StepCount = 32,
+            InputMipLevel = 2,
+            SliceCount = 2,
+            StepCount = 12,
             Radius = 10.0f,
             ExpFactor = 1.5f,
             Thickness = 1.0f,
             DenoiserMaxHistory = 20,
-            DenoiserBlurIterations = 4,
+            DenoiserBlurIterations = 3,
         },
     };
 

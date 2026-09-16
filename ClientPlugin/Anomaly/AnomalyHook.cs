@@ -36,6 +36,9 @@ internal static class AnomalyHook
     static MethodInfo _setUniforms;
     static MethodInfo _requestSrv;
     static MethodInfo _setEnabled;
+    static MethodInfo _setScale;
+    static MethodInfo _tryGetOutputSize;
+    static MethodInfo _tryGetProgramStatus;
     static MethodInfo _requestLitMips;
     static MethodInfo _registerOwned;
     static MethodInfo _catalogActive;
@@ -139,6 +142,75 @@ internal static class AnomalyHook
         catch (Exception e)
         {
             MyLog.Default.WriteLine("SSGI: RequestSrv failed: " + e.Message);
+            return false;
+        }
+    }
+
+    public static bool SetScale(string programId, float scale)
+    {
+        Probe();
+        MethodInfo set;
+        lock (Gate)
+            set = _setScale;
+        if (set == null)
+            return false;
+        try
+        {
+            return set.Invoke(null, new object[] { programId, scale }) is not false;
+        }
+        catch (Exception e)
+        {
+            MyLog.Default.WriteLine("SSGI: SetScale failed: " + e.Message);
+            return false;
+        }
+    }
+
+    public static bool TryGetOutputSize(string programId, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        Probe();
+        MethodInfo get;
+        lock (Gate)
+            get = _tryGetOutputSize;
+        if (get == null)
+            return false;
+        try
+        {
+            var args = new object[] { programId, 0, 0 };
+            if (get.Invoke(null, args) is not true)
+                return false;
+            width = args[1] is int w ? w : 0;
+            height = args[2] is int h ? h : 0;
+            return width > 0 && height > 0;
+        }
+        catch (Exception e)
+        {
+            MyLog.Default.WriteLine("SSGI: TryGetOutputSize failed: " + e.Message);
+            return false;
+        }
+    }
+
+    public static bool TryGetProgramStatus(string programId, out string status)
+    {
+        status = null;
+        Probe();
+        MethodInfo get;
+        lock (Gate)
+            get = _tryGetProgramStatus;
+        if (get == null || string.IsNullOrWhiteSpace(programId))
+            return false;
+        try
+        {
+            var args = new object[] { programId, null };
+            if (get.Invoke(null, args) is not true)
+                return false;
+            status = args[1] as string;
+            return !string.IsNullOrEmpty(status);
+        }
+        catch (Exception e)
+        {
+            MyLog.Default.WriteLine("SSGI: TryGetProgramStatus failed: " + e.Message);
             return false;
         }
     }
@@ -412,6 +484,14 @@ internal static class AnomalyHook
                     _setUniforms ??= fullscreen.GetMethod("SetUniforms", BindingFlags.Public | BindingFlags.Static);
                     _requestSrv ??= FindStatic(fullscreen, "RequestSrv");
                     _setEnabled ??= FindStatic(fullscreen, "SetEnabled", typeof(string), typeof(bool));
+                    _setScale ??= FindStatic(fullscreen, "SetScale");
+                    _tryGetOutputSize ??= FindStatic(fullscreen, "TryGetOutputSize");
+                    _tryGetProgramStatus ??= fullscreen.GetMethod(
+                        "TryGetProgramStatus",
+                        BindingFlags.Public | BindingFlags.Static,
+                        null,
+                        new[] { typeof(string), typeof(string).MakeByRefType() },
+                        null);
                     _requestLitMips ??= FindStatic(fullscreen, "RequestLitMips");
                 }
 

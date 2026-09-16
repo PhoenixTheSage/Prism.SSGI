@@ -22,6 +22,6 @@ float3 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
         return 0;
     }
 
-    float3 color = ApplyBlending(pixelPos, Input[pixelPos]);
+    float3 color = ApplyBlending(pixelPos, Input.SampleLevel(LinearSampler, uv, 0));
     return all(isfinite(color)) ? color : 0;
 }
