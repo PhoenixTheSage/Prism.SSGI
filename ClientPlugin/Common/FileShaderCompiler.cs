@@ -86,19 +86,19 @@ namespace ClientPlugin.Common
 
         public VertexShader CompileVertex(Device device, string id, string entryPoint, params ShaderMacro[] defines)
         {
-            CompilationResult compilation = CompileVertexBytecode(id, entryPoint, defines);
+            using CompilationResult compilation = CompileVertexBytecode(id, entryPoint, defines);
             return new VertexShader(device, compilation);
         }
 
         public PixelShader CompilePixel(Device device, string id, string entryPoint, params ShaderMacro[] defines)
         {
-            CompilationResult compilation = CompilePixelBytecode(id, entryPoint, defines);
+            using CompilationResult compilation = CompilePixelBytecode(id, entryPoint, defines);
             return new PixelShader(device, compilation);
         }
 
         public ComputeShader CompileCompute(Device device, string id, string entryPoint, params ShaderMacro[] defines)
         {
-            CompilationResult compilation = CompileComputeBytecode(id, entryPoint, defines);
+            using CompilationResult compilation = CompileComputeBytecode(id, entryPoint, defines);
             return new ComputeShader(device, compilation);
         }
 

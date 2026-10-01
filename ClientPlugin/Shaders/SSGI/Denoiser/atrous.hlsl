@@ -137,6 +137,19 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
         }
     }
 
+    if (neighborLumMax > 0 && centerLum > 12.0 * neighborLumMax)
+    {
+        totalColor -= centerColor;
+        totalWeight -= 1;
+        totalVariance -= centerVariance;
+    }
+    if (totalWeight <= 1e-4)
+    {
+        totalColor = 0;
+        totalWeight = 1;
+        totalVariance = 0;
+    }
+
     float3 finalColor = totalColor / totalWeight;
     float finalVariance = totalVariance / sq(totalWeight);
     if (!all(isfinite(finalColor)))

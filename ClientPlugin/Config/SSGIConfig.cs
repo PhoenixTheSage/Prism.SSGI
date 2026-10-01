@@ -11,6 +11,13 @@ public class SSGIConfig
     [ConfigProperty("Enable SSGI")]
     public bool Enabled { get; set; } = true;
 
+    float _resolutionScale;
+    public float ResolutionScale
+    {
+        get => TraceScale();
+        set => _resolutionScale = value <= 0.25f ? 0.25f : 0.5f;
+    }
+
     [FloatConfigProperty("GI Intensity", 0, 10, 5, "Light intensity multiplier.")]
     public float GIIntensity { get; set; } = 5;
 
@@ -52,10 +59,12 @@ public class SSGIConfig
         return SSGIQualityPreset.Custom;
     }
 
-    /// <summary>Low is quarter-res; Medium / High / Custom are half-res.</summary>
+    /// <summary>Legacy configs infer their scale once; subsequent slider edits preserve it.</summary>
     public float TraceScale()
     {
-        return DetectPreset() == SSGIQualityPreset.Low ? 0.25f : 0.5f;
+        if (_resolutionScale == 0)
+            _resolutionScale = DetectPreset() == SSGIQualityPreset.Low ? 0.25f : 0.5f;
+        return _resolutionScale;
     }
 
     public void ApplyPreset(SSGIQualityPreset preset)
@@ -73,6 +82,7 @@ public class SSGIConfig
     {
         new QualityPreset // Low — quarter-res Trace + 2 à-trous
         {
+            ResolutionScale = 0.25f,
             GIIntensity = 5,
             InputMipLevel = 2,
             SliceCount = 1,
@@ -85,6 +95,7 @@ public class SSGIConfig
         },
         new QualityPreset // Medium — half-res, 1 temporal slice
         {
+            ResolutionScale = 0.5f,
             GIIntensity = 5,
             InputMipLevel = 2,
             SliceCount = 1,
@@ -97,6 +108,7 @@ public class SSGIConfig
         },
         new QualityPreset // High — half-res, 2 slices
         {
+            ResolutionScale = 0.5f,
             GIIntensity = 5,
             InputMipLevel = 2,
             SliceCount = 2,
@@ -111,6 +123,7 @@ public class SSGIConfig
 
     public struct QualityPreset
     {
+        public float ResolutionScale;
         public float GIIntensity;
         public int InputMipLevel;
         public int SliceCount;
@@ -123,7 +136,8 @@ public class SSGIConfig
 
         public bool Matches(SSGIConfig config)
         {
-            return config.GIIntensity == GIIntensity
+            return (config._resolutionScale == 0 || config._resolutionScale == ResolutionScale)
+                && config.GIIntensity == GIIntensity
                 && config.InputMipLevel == InputMipLevel
                 && config.SliceCount == SliceCount
                 && config.StepCount == StepCount
@@ -136,6 +150,7 @@ public class SSGIConfig
 
         public void ApplyTo(SSGIConfig config)
         {
+            config.ResolutionScale = ResolutionScale;
             config.GIIntensity = GIIntensity;
             config.InputMipLevel = InputMipLevel;
             config.SliceCount = SliceCount;
@@ -178,6 +193,7 @@ public class SSGIConfig
             {
                 var config = new SSGIConfig(filePath);
                 serializer.Populate(jr, config);
+                config.TraceScale();
                 return config;
             }
         }

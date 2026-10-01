@@ -129,7 +129,7 @@ internal static class AnomalyTerminalHook
         Invoke(type, page, "IntSlider", "Input Prefiltering", 0, 4,
             (Func<int>)(() => config.InputMipLevel),
             (Action<int>)(v => Set(config, () => config.InputMipLevel = v)),
-            "More prefiltering improves temporal stability but increases light leaking.");
+            "Unused. Gather color is always scene-color mip 0 — higher mips average canopy holes.");
         Invoke(type, page, "Slider", "Radius", 0f, 15f,
             (Func<float>)(() => config.Radius),
             (Action<float>)(v => Set(config, () => config.Radius = v)),

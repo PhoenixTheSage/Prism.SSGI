@@ -11,7 +11,6 @@
       "output": "pass.prism.ssgi.trace",
       "scale": 0.5,
       "binds": [
-        { "catalog": "litMips", "slot": 7 },
         { "catalog": "hiZ", "slot": 8 }
       ]
     }

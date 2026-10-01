@@ -42,6 +42,7 @@ public static class SSGIPass
     static int _afterCount;
     static int _traceSrvOk;
     static bool _ready;
+    static bool _historyValid;
     static PixelShader _psSvgfTemporal;
     static PixelShader _psSvgfAtrous;
     static PixelShader _psCopyBlend;
@@ -72,9 +73,7 @@ public static class SSGIPass
 
         ReloadShaders();
         AnomalyHook.RegisterLifetime(OnResolutionChanged, OnDeviceEnd);
-        AnomalyHook.RequestSrv(AnomalyHook.TraceProgramId, AnomalyHook.LitMipsName, 7);
         AnomalyHook.RequestSrv(AnomalyHook.TraceProgramId, "hiZ", 8);
-        AnomalyHook.RequestLitMips(3);
         AnomalyHook.SetEnabled(AnomalyHook.TraceProgramId, Plugin.SSGIConfig.Enabled);
         AnomalyHook.SetScale(AnomalyHook.TraceProgramId, TraceScale());
         RecreateTargets();
@@ -94,13 +93,17 @@ public static class SSGIPass
 
     static void OnResolutionChanged()
     {
-        RecreateTargets();
+        if (_ready)
+            RecreateTargets();
+        else
+            Init();
     }
 
     static void OnDeviceEnd()
     {
-        DisposeTargets();
         _ready = false;
+        DisposeTargets();
+        DisposeShaders();
         NoteSkip("device end");
     }
 
@@ -109,47 +112,80 @@ public static class SSGIPass
         DisposeTargets();
         Vector2I res = PassSize();
         _size = res;
-        _cbv = MyManagers.Buffers.CreateConstantBuffer("Prism.SSGI.CbvDenoiser",
-            MathHelper.Align(sizeof(DenoiserCb), 16), usage: ResourceUsage.Dynamic, isGlobal: true);
-        _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI.RtvHistory", res.X, res.Y,
-            Format.R16G16B16A16_Float);
-        _prevMomentsAndHistoryLength = MyManagers.RwTextures.CreateRtv(
-            "Prism.SSGI.RtvPrevMomentsAndHistoryLength", res.X, res.Y, Format.R16G16B16A16_Float);
-        _prevDepthTex = MyManagers.RwTextures.CreateRtv("Prism.SSGI.RtvPrevDepth", res.X, res.Y, Format.R32_Float);
-        _prevGBuffer1 = MyManagers.RwTextures.CreateRtv("Prism.SSGI.RtvPrevGBuffer1", res.X, res.Y,
-            MyGBuffer.Main.GBuffer1.Format);
+        try
+        {
+            _cbv = MyManagers.Buffers.CreateConstantBuffer("Prism.SSGI.CbvDenoiser",
+                MathHelper.Align(sizeof(DenoiserCb), 16), usage: ResourceUsage.Dynamic, isGlobal: true);
+            _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI.RtvHistory", res.X, res.Y,
+                Format.R16G16B16A16_Float);
+            _prevMomentsAndHistoryLength = MyManagers.RwTextures.CreateRtv(
+                "Prism.SSGI.RtvPrevMomentsAndHistoryLength", res.X, res.Y, Format.R16G16B16A16_Float);
+            _prevDepthTex = MyManagers.RwTextures.CreateRtv("Prism.SSGI.RtvPrevDepth", res.X, res.Y, Format.R32_Float);
+            _prevGBuffer1 = MyManagers.RwTextures.CreateRtv("Prism.SSGI.RtvPrevGBuffer1", res.X, res.Y,
+                MyGBuffer.Main.GBuffer1.Format);
 
-        _historyPublished ??= AnomalyHook.TryCreatePublishedBuffer();
-        _prevDepthPublished ??= AnomalyHook.TryCreatePublishedBuffer();
+            _historyPublished ??= AnomalyHook.TryCreatePublishedBuffer();
+            _prevDepthPublished ??= AnomalyHook.TryCreatePublishedBuffer();
+        }
+        catch
+        {
+            DisposeTargets();
+            throw;
+        }
     }
 
     static void DisposeTargets()
     {
+        AnomalyHook.ClearPublishedBuffer(_historyPublished);
+        AnomalyHook.ClearPublishedBuffer(_prevDepthPublished);
+        if (_cbv != null)
+            MyManagers.Buffers.Dispose(_cbv);
         _cbv = null;
-        _historyTexture = null;
-        _prevMomentsAndHistoryLength = null;
-        _prevDepthTex = null;
-        _prevGBuffer1 = null;
+        MyManagers.RwTextures.DisposeTex(ref _historyTexture);
+        MyManagers.RwTextures.DisposeTex(ref _prevMomentsAndHistoryLength);
+        MyManagers.RwTextures.DisposeTex(ref _prevDepthTex);
+        MyManagers.RwTextures.DisposeTex(ref _prevGBuffer1);
+        _historyValid = false;
+        _prevViewMatrix = Matrix.Identity;
+        _size = default;
     }
 
-    public static void ReloadShaders()
+    static void DisposeShaders()
     {
         _psSvgfTemporal?.Dispose();
         _psSvgfAtrous?.Dispose();
         _psCopyBlend?.Dispose();
+        _psSvgfTemporal = null;
+        _psSvgfAtrous = null;
+        _psCopyBlend = null;
+    }
 
+    public static void ReloadShaders()
+    {
         var compiler = new FileShaderCompiler(Plugin.ShaderDirectory, MyShaderCompiler.ShadersPath);
         SharpDX.Direct3D11.Device device = MyRender11.DeviceInstance;
+        PixelShader temporal = null;
+        PixelShader atrous = null;
+        PixelShader copyBlend = null;
         try
         {
-            _psSvgfTemporal = compiler.CompilePixel(device, "SSGI/Denoiser/temporal.hlsl", "ps",
+            temporal = compiler.CompilePixel(device, "SSGI/Denoiser/temporal.hlsl", "ps",
                 new ShaderMacro("VARIANCE_GUIDED", 1));
-            _psSvgfAtrous = compiler.CompilePixel(device, "SSGI/Denoiser/atrous.hlsl", "ps",
+            atrous = compiler.CompilePixel(device, "SSGI/Denoiser/atrous.hlsl", "ps",
                 new ShaderMacro("VARIANCE_GUIDED", 1));
-            _psCopyBlend = compiler.CompilePixel(device, "SSGI/Denoiser/copyblend.hlsl", "ps",
+            copyBlend = compiler.CompilePixel(device, "SSGI/Denoiser/copyblend.hlsl", "ps",
                 new ShaderMacro("VARIANCE_GUIDED", 1));
+            DisposeShaders();
+            _psSvgfTemporal = temporal;
+            _psSvgfAtrous = atrous;
+            _psCopyBlend = copyBlend;
+            temporal = atrous = copyBlend = null;
             _compileError = false;
             Volatile.Write(ref _denoiserError, "");
+            // Gather contract change: drop SVGF history so sky fireflies
+            // do not age out over ~16 frames.
+            if (_historyTexture != null)
+                RecreateTargets();
         }
         catch (Exception e)
         {
@@ -173,6 +209,12 @@ public static class SSGIPass
             throw;
 #endif
         }
+        finally
+        {
+            temporal?.Dispose();
+            atrous?.Dispose();
+            copyBlend?.Dispose();
+        }
     }
 
     static void BeforeFullscreen(object ctx)
@@ -194,6 +236,7 @@ public static class SSGIPass
         AnomalyHook.SetScale(AnomalyHook.TraceProgramId, TraceScale());
         if (!config.Enabled)
         {
+            _historyValid = false;
             NoteSkip("disabled");
             return;
         }
@@ -267,13 +310,21 @@ public static class SSGIPass
         DenoiseVarianceGuided(rc, noisyRtv, _historyTexture, MyGBuffer.Main.LBuffer);
         borrowed?.Release();
 
+        // Retire history inputs before writing the next frame's depth and normals.
+        Unbind(rc);
         CopyReplace(rc, MyGBuffer.Main.GBuffer1, _prevGBuffer1, shouldStretch: true, pointFilter: true);
         var linearDepth = AnomalyHook.TryGetSrv("linearDepth");
         if (linearDepth != null)
+        {
             CopyReplace(rc, linearDepth, _prevDepthTex, shouldStretch: true, pointFilter: true);
+        }
+        _historyValid = linearDepth != null;
 
         AnomalyHook.TryPublishExisting(_historyPublished, AnomalyHook.HistoryName, _historyTexture, _size.X, _size.Y);
-        AnomalyHook.TryPublishExisting(_prevDepthPublished, AnomalyHook.PrevDepthName, _prevDepthTex, _size.X, _size.Y);
+        if (_historyValid)
+            AnomalyHook.TryPublishExisting(_prevDepthPublished, AnomalyHook.PrevDepthName, _prevDepthTex, _size.X, _size.Y);
+        else
+            AnomalyHook.ClearPublishedBuffer(_prevDepthPublished);
         Unbind(rc);
         Interlocked.Increment(ref _afterCount);
         NoteSkip("ok");
@@ -388,7 +439,8 @@ public static class SSGIPass
             rc.PixelShader.SetSrv(5, history);
             rc.PixelShader.SetSrv(6, input);
             rc.PixelShader.SetSrv(7, velocity);
-            rc.PixelShader.SetSrv(8, _prevDepthTex);
+            // A null depth SRV rejects history until every previous-frame target is written.
+            rc.PixelShader.SetSrv(8, _historyValid ? _prevDepthTex : null);
             rc.PixelShader.SetSrv(9, _prevGBuffer1);
             rc.PixelShader.SetSrv(10, _prevMomentsAndHistoryLength);
             ClearOm(rc);
@@ -396,6 +448,7 @@ public static class SSGIPass
             DrawPassQuad(rc);
             rc.SetRtvNull();
             rc.PixelShader.SetSrv(10, null);
+            rc.PixelShader.SetSrv(6, null);
 
             rc.CopyResource(tempRtvMomentsAndHistoryLength, _prevMomentsAndHistoryLength);
             tempRtvMomentsAndHistoryLength.Release();

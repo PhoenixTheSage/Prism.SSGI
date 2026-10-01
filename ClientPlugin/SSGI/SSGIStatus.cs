@@ -49,7 +49,7 @@ public static class SSGIStatus
         sb.Append(" · à-trous ").AppendLine(cfg.DenoiserBlurIterations.ToString(CultureInfo.InvariantCulture));
         sb.Append("     intensity ").Append(cfg.GIIntensity.ToString("0.##", CultureInfo.InvariantCulture));
         sb.Append(" · radius ").Append(cfg.Radius.ToString("0.##", CultureInfo.InvariantCulture));
-        sb.Append(" · mip ").Append(cfg.InputMipLevel);
+        sb.Append(" · mip 0");
         sb.Append(" · history ").AppendLine(cfg.DenoiserMaxHistory.ToString(CultureInfo.InvariantCulture));
     }
 

@@ -1,0 +1,143 @@
+using System.Reflection;
+using System.Threading;
+using ClientPlugin.Config;
+using SharpDX.Direct3D;
+using SharpDX.Direct3D11;
+using SharpDX.DXGI;
+using VRage.Utils;
+using VRageMath;
+
+namespace LifecycleFixture;
+
+static class LifecycleRegression
+{
+    /*PRODUCTION_STRUCT*/
+    static bool _ready, _compileError, _historyValid;
+    static string _denoiserError = "", _skip = "";
+    static PixelShader _psSvgfTemporal, _psSvgfAtrous, _psCopyBlend;
+    static IConstantBuffer _cbv;
+    static IRtvTexture _historyTexture, _prevMomentsAndHistoryLength, _prevDepthTex, _prevGBuffer1;
+    static object _historyPublished, _prevDepthPublished;
+    static Matrix _prevViewMatrix = Matrix.Identity;
+    static Vector2I _size;
+    static void BeforeFullscreen(object ctx) { }
+    static void AfterFullscreen(object ctx) { }
+    /*PRODUCTION_METHODS*/
+
+    public static void Run()
+    {
+        Init(); CheckLive(4, 1, 3); Check(_ready, "initial readiness");
+        for (var i = 0; i < 100; i++)
+        {
+            ((Publication)_historyPublished).Publish(_historyTexture, new IntPtr(1), 960, 540);
+            ((Publication)_prevDepthPublished).Publish(_prevDepthTex, new IntPtr(1), 960, 540);
+            _historyValid = true;
+            MyRender11.ResolutionI = i % 2 == 0 ? new Vector2I(1280, 720) : new Vector2I(1920, 1080);
+            OnResolutionChanged(); CheckLive(4, 1, 3);
+            Check(!_historyValid && !((Publication)_historyPublished).IsAvailable && !((Publication)_prevDepthPublished).IsAvailable, "resize invalidates history/publications");
+        }
+        for (var i = 0; i < 10; i++) { ReloadShaders(); CheckLive(4, 1, 3); }
+        for (var ordinal = 1; ordinal <= 3; ordinal++)
+        {
+            FileShaderCompiler.Calls = 0; FileShaderCompiler.FailAt = ordinal;
+            ReloadShaders(); CheckLive(4, 1, 3); Check(_compileError, "partial shader compile fails closed");
+            FileShaderCompiler.FailAt = 0;
+            ReloadShaders(); CheckLive(4, 1, 3); Check(!_compileError, "shader retry recovers");
+        }
+        MyManagers.RwTextures.Calls = 0; MyManagers.RwTextures.FailAt = 2;
+        var threw = false;
+        try { OnResolutionChanged(); } catch (InvalidOperationException) { threw = true; }
+        Check(threw, "partial allocation fault injected"); CheckLive(0, 0, 3);
+        Check(_size == default(Vector2I), "failed allocation cannot retain pass size");
+        MyManagers.RwTextures.FailAt = 0;
+        OnResolutionChanged(); CheckLive(4, 1, 3);
+        for (var i = 0; i < 10; i++)
+        {
+            OnDeviceEnd(); CheckLive(0, 0, 0); Check(!_ready, "device end readiness");
+            OnResolutionChanged(); CheckLive(4, 1, 3); Check(_ready && !_compileError, "device recreation reinitializes");
+            Check(AnomalyHook.Passes.Count == 2 && AnomalyHook.LifetimeRegistrations == 1, "no duplicate callbacks");
+        }
+        OnDeviceEnd(); OnDeviceEnd(); CheckLive(0, 0, 0);
+        Console.WriteLine("PASS: exact production lifecycle methods: 100 resizes, reloads, partial compile/allocation faults, ten device recreations and idempotent disposal. GPU managers/compiler are tracking stand-ins.");
+    }
+    static void CheckLive(int textures, int buffers, int shaders)
+    {
+        Check(MyManagers.RwTextures.Live.Count == textures && MyManagers.Buffers.Live.Count == buffers && PixelShader.Live == shaders,
+            $"resource count: {MyManagers.RwTextures.Live.Count}/{MyManagers.Buffers.Live.Count}/{PixelShader.Live}");
+    }
+    static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+}
+
+sealed class PixelShader : IDisposable {
+    public static int Live;
+    bool disposed;
+    public PixelShader() { Live++; }
+    public void Dispose() { if (disposed) throw new Exception("double shader disposal"); disposed = true; Live--; }
+}
+sealed class IConstantBuffer { }
+sealed class IRtvTexture { public Format Format = Format.R10G10B10A2_UNorm; }
+static class MyManagers {
+    public static readonly TextureManager RwTextures = new();
+    public static readonly BufferManager Buffers = new();
+}
+sealed class TextureManager {
+    public readonly HashSet<IRtvTexture> Live = new();
+    public int Calls, FailAt;
+    public IRtvTexture CreateRtv(string name, int w, int h, Format format) {
+        if (++Calls == FailAt) throw new InvalidOperationException("allocation fault");
+        var texture = new IRtvTexture { Format = format }; Live.Add(texture); return texture;
+    }
+    public void DisposeTex(ref IRtvTexture texture) {
+        if (texture == null) return;
+        var retired = texture;
+        if (AnomalyHook.Publications.Any(p => p.IsAvailable && ReferenceEquals(p.Srv, retired))) throw new Exception("disposed publication is still available");
+        if (!Live.Remove(texture)) throw new Exception("double/unowned texture disposal");
+        texture = null;
+    }
+}
+sealed class BufferManager {
+    public readonly HashSet<IConstantBuffer> Live = new();
+    public IConstantBuffer CreateConstantBuffer(string name, int size, ResourceUsage usage, bool isGlobal) { var buffer = new IConstantBuffer(); Live.Add(buffer); return buffer; }
+    public void Dispose(IConstantBuffer buffer) { if (!Live.Remove(buffer)) throw new Exception("double buffer disposal"); }
+}
+sealed class FileShaderCompiler {
+    public static int Calls, FailAt;
+    public FileShaderCompiler(string root, string gameRoot) { }
+    public PixelShader CompilePixel(SharpDX.Direct3D11.Device device, string file, string entry, ShaderMacro macro) {
+        if (++Calls == FailAt) throw new InvalidOperationException("shader compile fault");
+        return new PixelShader();
+    }
+}
+static class Plugin { public static readonly SSGIConfig SSGIConfig = new("unused"); public static string ShaderDirectory = ""; }
+static class MyShaderCompiler { public static string ShadersPath = ""; }
+static class MyRender11 { public static SharpDX.Direct3D11.Device DeviceInstance; public static Vector2I ResolutionI = new(1920, 1080); }
+static class MyGBuffer { public static readonly GBuffer Main = new(); }
+sealed class GBuffer { public readonly IRtvTexture GBuffer1 = new(); }
+static class MySandboxGame { public static readonly SandboxGame Static = new(); }
+sealed class SandboxGame { public void Invoke(Action callback, string name) { callback(); } }
+static class MyAPIGateway { public static readonly Utilities Utilities = new(); }
+sealed class Utilities { public void ShowMessage(string title, string message) { } }
+sealed class Publication {
+    public object Srv;
+    public int Width, Height;
+    public bool IsAvailable => Srv != null && Width > 0 && Height > 0;
+    public void Publish(object srv, IntPtr native, int width, int height) { Srv = srv; Width = width; Height = height; }
+}
+static class AnomalyHook {
+    static readonly object Gate = new();
+    static readonly MethodInfo _publishedPublish = typeof(Publication).GetMethod("Publish");
+    static void Probe() { }
+    public const string TraceProgramId = "trace", MipsPassId = "uniforms", SvgfPassId = "svgf";
+    public const int TemporalInColor = 1, PhaseBeforeFullscreen = 0, PhaseAfterFullscreen = 1;
+    public static readonly Dictionary<string, Action<object>> Passes = new();
+    public static readonly List<Publication> Publications = new();
+    public static int LifetimeRegistrations;
+    public static void RegisterLifetime(Action resolution, Action deviceEnd) { if (LifetimeRegistrations == 0) LifetimeRegistrations++; }
+    public static bool RequestSrv(string id, string name, int slot) => true;
+    public static bool SetEnabled(string id, bool enabled) => true;
+    public static bool SetScale(string id, float scale) => true;
+    public static bool TryGetOutputSize(string id, out int w, out int h) { w = h = 0; return false; }
+    public static bool TryRegisterOwnedPass(string id, string slot, int priority, int policy, Action<object> draw, int phase) { Passes[id] = draw; return true; }
+    public static object TryCreatePublishedBuffer() { var p = new Publication(); Publications.Add(p); return p; }
+    /*PRODUCTION_CLEAR*/
+}

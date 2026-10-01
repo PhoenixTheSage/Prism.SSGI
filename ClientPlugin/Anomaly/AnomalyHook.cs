@@ -400,6 +400,24 @@ internal static class AnomalyHook
         }
     }
 
+    public static void ClearPublishedBuffer(object publishedBuffer)
+    {
+        if (publishedBuffer == null)
+            return;
+        Probe();
+        MethodInfo publish;
+        lock (Gate)
+            publish = _publishedPublish;
+        try
+        {
+            publish?.Invoke(publishedBuffer, new object[] { null, IntPtr.Zero, 0, 0 });
+        }
+        catch (Exception e)
+        {
+            MyLog.Default.WriteLine("SSGI: clear published buffer failed: " + e.Message);
+        }
+    }
+
     public static MyRenderContext GetRenderContext(object ctx)
     {
         if (ctx is MyRenderContext rc)
@@ -508,7 +526,12 @@ internal static class AnomalyHook
                 if (published != null && _publishedBufferType == null)
                 {
                     _publishedBufferType = published;
-                    _publishedPublish = published.GetMethod("Publish", BindingFlags.Public | BindingFlags.Instance);
+                    _publishedPublish = published.GetMethod(
+                        "Publish",
+                        BindingFlags.Public | BindingFlags.Instance,
+                        null,
+                        new[] { typeof(object), typeof(IntPtr), typeof(int), typeof(int) },
+                        null);
                 }
 
                 if (_registerPack != null && _setUniforms != null && _registerOwned != null && _catalogActive != null)

@@ -17,6 +17,7 @@
 #define Proj32          AnomalyPassUniform4.y
 #define Farplane        AnomalyPassUniform5.x
 
+// Bound (json hiZ) but lighting uses full-res linearDepth — Slice AR.
 #define HiZ AnomalyPackSrv1
 
 static const float SSGI_PI = 3.141592653589793;
@@ -26,7 +27,7 @@ static const float InvSectorCount = 1.0 / float(SectorCount);
 
 bool IsForeground(float linearDepth)
 {
-    return linearDepth > 1e-4 && linearDepth < Farplane * 0.999;
+    return AnomalyIsForeground(linearDepth, Farplane);
 }
 
 // Keen Math.hlsli (via AnomalyFullscreen.hlsli → Common.hlsli) already
@@ -57,17 +58,17 @@ float3 LoadViewNormalUv(float2 uv)
     return UnpackNormal(AnomalyGBuffer1[AnomalyScenePixel(uv)].xy);
 }
 
-float SampleMarchDepth(float2 uv, uint stepIndex, uint steps)
+// GAP: Slice AR — half-res hiZ at a sky UV can pull a neighboring
+// foliage depth. Lighting must use full-res linearDepth at this UV.
+float SampleMarchDepth(float2 uv)
 {
-    if (steps > 2 && stepIndex * 2 >= steps)
-        return HiZ.SampleLevel(AnomalyPointSampler, uv, 0);
     return AnomalyLinearDepth.SampleLevel(AnomalyPointSampler, uv, 0);
 }
 
-float3 SampleLit(float2 uv, float mip)
+// GAP: Slice AR — litMips averages canopy holes (sky / last-frame
+// atmosphere). Gather color is mip 0 only.
+float3 SampleLit(float2 uv)
 {
-    if (mip > 0.5)
-        return AnomalyPackSrv0.SampleLevel(AnomalyPointSampler, uv, mip).xyz;
     return AnomalySceneColor.SampleLevel(AnomalyPointSampler, uv, 0).xyz;
 }
 
@@ -77,6 +78,18 @@ float3 ReconstructViewPosition(float linearDepth, float2 uv)
     const float ray_y = 1. / Proj22;
     float3 projOffset = float3(Proj31 / Proj11, Proj32 / Proj22, 0);
     return linearDepth * (projOffset + float3(lerp(-ray_x, ray_x, uv.x), -lerp(-ray_y, ray_y, uv.y), -1.0));
+}
+
+uint ForegroundSectorMask(float2 frontBackHorizon, int cover)
+{
+    if (cover < 6)
+        return 0;
+    uint startSector = min((uint)(saturate(frontBackHorizon.x) * SectorCount), SectorCount - 1);
+    uint sectorCount = min((uint)round(saturate(frontBackHorizon.y - frontBackHorizon.x) * SectorCount), SectorCount - startSector);
+    // Accepted thin silhouettes occupy one angular bin without extruding their depth.
+    if (cover < 8)
+        sectorCount = max(sectorCount, 1u);
+    return sectorCount > 0 ? ((0xFFFFFFFFu >> (SectorCount - sectorCount)) << startSector) : 0;
 }
 
 float3 HorizonAngle(float3 viewPosition, float3 viewDir, float3 viewNormal, float2 rayOrigin, float2 rayDir, float stepSize, float initialStep, bool directionIsRight, float N, uint liveSteps)
@@ -96,9 +109,18 @@ float3 HorizonAngle(float3 viewPosition, float3 viewDir, float3 viewNormal, floa
         if (any(saturate(rayPosUV) != rayPosUV))
             break;
 
-        float rayHitDepth = SampleMarchDepth(rayPosUV, i, liveSteps);
+        float rayHitDepth = SampleMarchDepth(rayPosUV);
+        if (!IsForeground(rayHitDepth))
+            continue;
         float3 rayHitPos = ReconstructViewPosition(rayHitDepth, rayPosUV);
-        float3 rayHitPosBack = rayHitPos + (-viewDir * Thickness);
+        if (length(rayHitPos - viewPosition) > Radius)
+            continue;
+
+        // GAP: Slice AR — 9/9 rejected every silhouette / window edge.
+        // Isolated sky leaves are 1–3. Supermajority (6) keeps real bounce.
+        int cover = AnomalyForegroundCount(rayPosUV, Farplane);
+        float thick = cover >= 8 ? Thickness : 0;
+        float3 rayHitPosBack = rayHitPos + (-viewDir * thick);
 
         float3 rayHitDir = normalize(rayHitPos - viewPosition);
         float3 rayHitDirBack = normalize(rayHitPosBack - viewPosition);
@@ -108,10 +130,7 @@ float3 HorizonAngle(float3 viewPosition, float3 viewDir, float3 viewNormal, floa
         frontBackHorizon = saturate(((samplingDirection * -frontBackHorizon) - N + SSGI_HALF_PI) / SSGI_PI);
         frontBackHorizon = directionIsRight ? frontBackHorizon.yx : frontBackHorizon.xy;
 
-        uint startSector = frontBackHorizon.x * 32;
-        uint sectorCount = round((frontBackHorizon.y - frontBackHorizon.x) * 32);
-
-        uint newlyOccludedSectors = sectorCount > 0 ? ((0xFFFFFFFFu >> (32 - sectorCount)) << startSector) : 0;
+        uint newlyOccludedSectors = ForegroundSectorMask(frontBackHorizon, cover);
         newlyOccludedSectors &= ~occludedSectors;
         occludedSectors |= newlyOccludedSectors;
 
@@ -122,7 +141,7 @@ float3 HorizonAngle(float3 viewPosition, float3 viewDir, float3 viewNormal, floa
         if (cosineTerm <= 0.001)
             continue;
 
-        float3 rayHitColor = SampleLit(rayPosUV, MipLevel);
+        float3 rayHitColor = SampleLit(rayPosUV);
         if (!any(rayHitColor > 0.001))
             continue;
 

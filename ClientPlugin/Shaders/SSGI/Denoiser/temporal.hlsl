@@ -22,6 +22,14 @@ uint2 ScenePixelFromPass(uint2 passPixel)
     return min(uint2(uv * SceneSize), uint2(max(SceneSize, 1)) - 1);
 }
 
+float3 ClampFirefly(float3 color, float neighborLuminance)
+{
+    // Black neighbors provide no evidence that a sparse SSILVB hit is an outlier.
+    float cap = 12.0 * neighborLuminance;
+    float lum = luminance(color);
+    return neighborLuminance > 1e-4 && lum > cap ? color * (cap / lum) : color;
+}
+
 float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out float3 momentsAndHistoryLength : SV_Target1) : SV_Target0
 {
     momentsAndHistoryLength = 0;
@@ -96,6 +104,22 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
     history.w += 1.0;
 
     float3 currentColor = Source[pixelPos];
+    float neighMax = 0;
+    [unroll]
+    for (int ny = -1; ny <= 1; ny++)
+    {
+        [unroll]
+        for (int nx = -1; nx <= 1; nx++)
+        {
+            if (nx == 0 && ny == 0)
+                continue;
+            int2 npos = int2(pixelPos) + int2(nx, ny);
+            if (any(npos < 0 || npos >= int2(ScreenSize)))
+                continue;
+            neighMax = max(neighMax, luminance(Source[npos]));
+        }
+    }
+    currentColor = ClampFirefly(currentColor, neighMax);
 
     float alpha = 1.0 / history.w;
 

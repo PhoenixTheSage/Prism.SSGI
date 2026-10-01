@@ -44,80 +44,31 @@ public class PropertyBinding<TControl, TValue> : PropertyBinding where TControl 
 
 public class GuiScreenSSGIConfig : MyGuiScreenBase
 {
-    struct PresetData
+    void ApplyPreset(SSGIQualityPreset preset)
     {
-        public float GIIntensity;
-        public int InputMipLevel;
-        public int SliceCount;
-        public int StepCount;
-        public float Radius;
-        public float ExpFactor;
-        public float Thickness;
-        public int DenoiserMaxHistory;
-        public int DenoiserBlurIterations;
-
-        public void ApplyTo(GuiScreenSSGIConfig target)
-        {
-            ((MyGuiControlSlider)target._controlsByPropertyName["GIIntensity"])       .Value = GIIntensity;
-            ((MyGuiControlSlider)target._controlsByPropertyName["InputMipLevel"])     .Value = InputMipLevel;
-            ((MyGuiControlSlider)target._controlsByPropertyName["SliceCount"])        .Value = SliceCount;
-            ((MyGuiControlSlider)target._controlsByPropertyName["StepCount"])         .Value = StepCount;
-            ((MyGuiControlSlider)target._controlsByPropertyName["Radius"])            .Value = Radius;
-            ((MyGuiControlSlider)target._controlsByPropertyName["ExpFactor"])         .Value = ExpFactor;
-            ((MyGuiControlSlider)target._controlsByPropertyName["Thickness"])         .Value = Thickness;
-            ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserMaxHistory"]).Value = DenoiserMaxHistory;
-            ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserBlurIterations"]).Value = DenoiserBlurIterations;
-        }
+        var values = SSGIConfig.Presets[(int)preset];
+        _resolutionScale = values.ResolutionScale;
+        ((MyGuiControlSlider)_controlsByPropertyName["GIIntensity"]).Value = values.GIIntensity;
+        ((MyGuiControlSlider)_controlsByPropertyName["InputMipLevel"]).Value = values.InputMipLevel;
+        ((MyGuiControlSlider)_controlsByPropertyName["SliceCount"]).Value = values.SliceCount;
+        ((MyGuiControlSlider)_controlsByPropertyName["StepCount"]).Value = values.StepCount;
+        ((MyGuiControlSlider)_controlsByPropertyName["Radius"]).Value = values.Radius;
+        ((MyGuiControlSlider)_controlsByPropertyName["ExpFactor"]).Value = values.ExpFactor;
+        ((MyGuiControlSlider)_controlsByPropertyName["Thickness"]).Value = values.Thickness;
+        ((MyGuiControlSlider)_controlsByPropertyName["DenoiserMaxHistory"]).Value = values.DenoiserMaxHistory;
+        ((MyGuiControlSlider)_controlsByPropertyName["DenoiserBlurIterations"]).Value = values.DenoiserBlurIterations;
     }
-
-    static readonly PresetData[] _presets =
-    {
-        new PresetData // low
-        {
-            GIIntensity = 5,
-            InputMipLevel = 4,
-            SliceCount = 1,
-            StepCount = 8,
-            Radius = 5.0f,
-            ExpFactor = 1.5f,
-            Thickness = 1.0f,
-            DenoiserMaxHistory = 24,
-            DenoiserBlurIterations = 5,
-        },
-        new PresetData // medium
-        {
-            GIIntensity = 5,
-            InputMipLevel = 3,
-            SliceCount = 2,
-            StepCount = 16,
-            Radius = 7.5f,
-            ExpFactor = 1.5f,
-            Thickness = 1.0f,
-            DenoiserMaxHistory = 20,
-            DenoiserBlurIterations = 5,
-        },
-        new PresetData // high
-        {
-            GIIntensity = 5,
-            InputMipLevel = 3,
-            SliceCount = 4,
-            StepCount = 32,
-            Radius = 10.0f,
-            ExpFactor = 1.5f,
-            Thickness = 1.0f,
-            DenoiserMaxHistory = 20,
-            DenoiserBlurIterations = 4,
-        },
-    };
 
     private readonly List<PropertyBinding> _bindings = [];
     private readonly Dictionary<string, MyGuiControlBase> _controlsByPropertyName = [];
     private readonly SSGIConfig _config;
+    private float _resolutionScale;
 
     public GuiScreenSSGIConfig(SSGIConfig config)
         : base(new Vector2(0.5f), MyGuiConstants.SCREEN_BACKGROUND_COLOR, new Vector2(0.6f, 0.7f), false, null, MySandboxGame.Config.UIBkOpacity, MySandboxGame.Config.UIOpacity)
     {
         _config = config;
+        _resolutionScale = config.TraceScale();
 
         EnabledBackgroundFade = true;
         m_closeOnEsc = true;
@@ -164,7 +115,10 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
         dropdown.SelectItemByKey(99);
         dropdown.ItemSelected += () =>
         {
-            _presets[dropdown.GetSelectedKey()].ApplyTo(this);
+            var key = dropdown.GetSelectedKey();
+            if (key < 0 || key >= SSGIConfig.Presets.Length)
+                return;
+            ApplyPreset((SSGIQualityPreset)key);
             dropdown.SelectItemByKey(99, false);
         };
         AddControl(dropdown);
@@ -202,6 +156,7 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
     private void OnSaveButtonClick(MyGuiControlButton btn)
     {
         _bindings.ForEach(i => i?.Save());
+        _config.ResolutionScale = _resolutionScale;
         _config.Save();
         _config.FlushPending(true);
     }

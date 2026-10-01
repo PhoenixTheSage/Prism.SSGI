@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);DEV</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../ClientPlugin/Config/*.cs" Link="Production/%(Filename)%(Extension)" />
+    <Compile Include="../../ClientPlugin/Common/FileShaderCompiler.cs" Link="Production/FileShaderCompiler.cs" />
+    <Compile Include="../../ClientPlugin/Common/IShaderCompiler.cs" Link="Production/IShaderCompiler.cs" />
+    <Compile Include="obj/Lifecycle.cs" />
+    <Reference Include="Newtonsoft.Json"><HintPath>$(Pulsar)/Libraries/Interim/Newtonsoft.Json.dll</HintPath></Reference>
+    <Reference Include="SharpDX"><HintPath>$(Bin64)/SharpDX.dll</HintPath></Reference>
+    <Reference Include="SharpDX.D3DCompiler"><HintPath>$(Bin64)/SharpDX.D3DCompiler.dll</HintPath></Reference>
+    <Reference Include="SharpDX.Direct3D11"><HintPath>$(Bin64)/SharpDX.Direct3D11.dll</HintPath></Reference>
+    <Reference Include="SharpDX.DXGI"><HintPath>$(Bin64)/SharpDX.DXGI.dll</HintPath></Reference>
+    <Reference Include="VRage.Math"><HintPath>$(Bin64)/VRage.Math.dll</HintPath></Reference>
+  </ItemGroup>
+  <Target Name="ExtractLifecycle" BeforeTargets="CoreCompile">
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildProjectDirectory)/GenerateLifecycle.ps1&quot; -Output &quot;$(MSBuildProjectDirectory)/obj/Lifecycle.cs&quot;" />
+  </Target>
+</Project>
