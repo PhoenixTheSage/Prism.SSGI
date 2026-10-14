@@ -1,7 +1,5 @@
 using System;
 using System.Reflection;
-using VRage.Render11.RenderContext;
-using VRage.Render11.Resources;
 using VRage.Utils;
 
 namespace ClientPlugin.Anomaly;
@@ -299,23 +297,18 @@ internal static class AnomalyHook
         }
     }
 
-    public static ISrvBindable TryGetSrv(string catalogName)
+    public static object TryGetSrv(string catalogName)
     {
         var buffer = TryGetBuffer(catalogName);
         if (buffer == null)
             return null;
         try
         {
-            // Catalog entries are different runtime types (PublishedBuffer,
-            // CatalogTexture, VelocitySharedBuffer). A PropertyInfo cached
-            // from the first type throws TargetException on the others;
-            // the catch returned null and SVGF blended zeros onto LBuffer
-            // while Trace still ran.
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
             var type = buffer.GetType();
             if (type.GetProperty("IsAvailable", flags)?.GetValue(buffer) is not true)
                 return null;
-            return type.GetProperty("Srv", flags)?.GetValue(buffer) as ISrvBindable;
+            return type.GetProperty("Srv", flags)?.GetValue(buffer);
         }
         catch
         {
@@ -323,7 +316,7 @@ internal static class AnomalyHook
         }
     }
 
-    public static bool TryPublish(string name, ISrvBindable srv, int width, int height)
+    public static bool TryPublish(string name, object srv, int width, int height)
     {
         if (srv == null || width <= 0 || height <= 0)
             return false;
@@ -373,7 +366,7 @@ internal static class AnomalyHook
         }
     }
 
-    public static bool TryPublishExisting(object publishedBuffer, string name, ISrvBindable srv, int width, int height)
+    public static bool TryPublishExisting(object publishedBuffer, string name, object srv, int width, int height)
     {
         if (publishedBuffer == null || srv == null)
             return false;
@@ -418,24 +411,21 @@ internal static class AnomalyHook
         }
     }
 
-    public static MyRenderContext GetRenderContext(object ctx)
+    public static object GetRenderContext(object ctx)
     {
-        if (ctx is MyRenderContext rc)
-            return rc;
+        if (ctx != null && ctx.GetType().FullName == "VRage.Render11.RenderContext.MyRenderContext")
+            return ctx;
         try
         {
-            var prop = ctx?.GetType().GetProperty("Rc");
-            if (prop?.GetValue(ctx) is MyRenderContext fromCtx)
-                return fromCtx;
+            var value = ctx?.GetType().GetProperty("Rc")?.GetValue(ctx);
+            if (value != null && value.GetType().FullName == "VRage.Render11.RenderContext.MyRenderContext")
+                return value;
         }
         catch
         {
             // fall through
         }
 
-        // AfterLighting records on Keen's transparent deferred worker.
-        // MyRender11.RC is the immediate context — using it from that
-        // worker races the render thread and hangs the device.
         return null;
     }
 
@@ -457,12 +447,13 @@ internal static class AnomalyHook
         }
     }
 
-    static IntPtr NativePointer(ISrvBindable srv)
+    static IntPtr NativePointer(object srv)
     {
         try
         {
-            var resource = srv.Resource;
-            return resource != null ? resource.NativePointer : IntPtr.Zero;
+            var resource = srv?.GetType().GetProperty("Resource")?.GetValue(srv);
+            var pointer = resource?.GetType().GetProperty("NativePointer")?.GetValue(resource);
+            return pointer is IntPtr value ? value : IntPtr.Zero;
         }
         catch
         {

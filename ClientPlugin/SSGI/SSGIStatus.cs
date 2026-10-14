@@ -1,10 +1,11 @@
+using System;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using ClientPlugin.Anomaly;
 using ClientPlugin.Config;
 using ClientPlugin.Gui;
 using Sandbox.Graphics.GUI;
-using VRageRender;
 
 namespace ClientPlugin.SSGI;
 
@@ -65,19 +66,46 @@ public static class SSGIStatus
 
     static void AppendRuntime(StringBuilder sb)
     {
-        var size = SSGIPass.PassResolution;
-        var scene = MyRender11.ResolutionI;
-        sb.Append("Pass     ").Append(size.X).Append('x').Append(size.Y);
-        sb.Append(" · scene ").Append(scene.X).Append('x').Append(scene.Y);
-        sb.Append(" · ready ").Append(Yes(SSGIPass.Ready));
-        sb.Append(" · before ").Append(SSGIPass.BeforeFrames);
-        sb.Append(" · after ").AppendLine(SSGIPass.AfterFrames.ToString(CultureInfo.InvariantCulture));
-        sb.Append("Denoiser ").AppendLine(SSGIPass.DenoiserCompileError ? "compile failed" : "ok");
-        var denoiseErr = SSGIPass.DenoiserError;
+        var pass = Find("ClientPlugin.SSGI.SSGIPass");
+        int px = ReadInt(pass, "PassResolution", "X");
+        int py = ReadInt(pass, "PassResolution", "Y");
+        var scene = Find("ClientPlugin.Backend.SceneView");
+        int sx = Convert.ToInt32(scene?.GetProperty("Width")?.GetValue(null) ?? 0);
+        int sy = Convert.ToInt32(scene?.GetProperty("Height")?.GetValue(null) ?? 0);
+        sb.Append("Pass     ").Append(px).Append('x').Append(py);
+        sb.Append(" · scene ").Append(sx).Append('x').Append(sy);
+        sb.Append(" · ready ").Append(Yes(Flag(pass, "Ready")));
+        sb.Append(" · before ").Append(Convert.ToInt32(pass?.GetProperty("BeforeFrames")?.GetValue(null) ?? 0));
+        sb.Append(" · after ").AppendLine(Convert.ToInt32(pass?.GetProperty("AfterFrames")?.GetValue(null) ?? 0).ToString(CultureInfo.InvariantCulture));
+        sb.Append("Denoiser ").AppendLine(Flag(pass, "DenoiserCompileError") ? "compile failed" : "ok");
+        var denoiseErr = pass?.GetProperty("DenoiserError")?.GetValue(null) as string;
         if (!string.IsNullOrEmpty(denoiseErr))
             sb.Append("     ").AppendLine(denoiseErr);
-        sb.Append("TraceSRV ").Append(SSGIPass.LastTraceSrv ? "yes" : "missing");
-        sb.Append(" · skip ").AppendLine(SSGIPass.LastSkip);
+        sb.Append("TraceSRV ").Append(Flag(pass, "LastTraceSrv") ? "yes" : "missing");
+        sb.Append(" · skip ").AppendLine(pass?.GetProperty("LastSkip")?.GetValue(null) as string ?? "");
+    }
+
+    static Type Find(string name)
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            Type type;
+            try { type = assembly.GetType(name, false); }
+            catch { continue; }
+            if (type != null)
+                return type;
+        }
+
+        return null;
+    }
+
+    static bool Flag(Type type, string property) => type?.GetProperty(property)?.GetValue(null) is true;
+
+    static int ReadInt(Type type, string property, string field)
+    {
+        var value = type?.GetProperty(property)?.GetValue(null);
+        var inner = value?.GetType().GetField(field)?.GetValue(value) ?? value?.GetType().GetProperty(field)?.GetValue(value);
+        return inner == null ? 0 : Convert.ToInt32(inner);
     }
 
     static void AppendPaths(StringBuilder sb)

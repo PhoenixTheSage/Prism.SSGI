@@ -15,7 +15,7 @@
 #define Proj22          AnomalyPassUniform3.w
 #define Proj31          AnomalyPassUniform4.x
 #define Proj32          AnomalyPassUniform4.y
-#define Farplane        AnomalyPassUniform5.x
+#define Farplane        (AnomalyPassUniform5.x > 1 ? AnomalyPassUniform5.x : AnomalyCameraToWorldPad.x)
 
 // Bound (json hiZ) but lighting uses full-res linearDepth — Slice AR.
 #define HiZ AnomalyPackSrv1

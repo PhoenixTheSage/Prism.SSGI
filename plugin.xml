@@ -18,6 +18,8 @@ Sampling is based on the SSILVB algorithm with a modified SVGF denoiser. Require
     <Id>A9C29274-E447-49EE-881B-C980E6D190FD</Id>
   </DependencyIds>
 
+  <Platforms>Windows,Linux</Platforms>
+
   <SourceDirectories>
     <Directory>ClientPlugin</Directory>
   </SourceDirectories>

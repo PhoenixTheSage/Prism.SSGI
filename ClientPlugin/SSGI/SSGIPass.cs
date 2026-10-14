@@ -5,7 +5,6 @@ using ClientPlugin.Anomaly;
 using ClientPlugin.Common;
 using ClientPlugin.Config;
 using Sandbox;
-using Sandbox.ModAPI;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
@@ -198,7 +197,9 @@ public static class SSGIPass
             {
                 try
                 {
-                    MyAPIGateway.Utilities.ShowMessage("Prism.SSGI", e.ToString());
+                    var gateway = Type.GetType("Sandbox.ModAPI.MyAPIGateway, Sandbox.Common");
+                    var utilities = gateway?.GetProperty("Utilities")?.GetValue(null);
+                    utilities?.GetType().GetMethod("ShowMessage")?.Invoke(utilities, new object[] { "Prism.SSGI", e.ToString() });
                 }
                 catch
                 {
@@ -278,7 +279,7 @@ public static class SSGIPass
     static void AfterFullscreenCore(object ctx)
     {
         EnsureSize();
-        var rc = AnomalyHook.GetRenderContext(ctx);
+        var rc = AnomalyHook.GetRenderContext(ctx) as MyRenderContext;
         if (rc == null || !rc.IsInitialized)
         {
             NoteSkip("no deferred rc");
@@ -287,7 +288,7 @@ public static class SSGIPass
         // AfterLighting runs on lighting's deferred list. LBuffer / GBuffer
         // are still MRT slots; BindCommon samples them as SRVs.
         ClearOm(rc);
-        var noisySrv = AnomalyHook.TryGetSrv(AnomalyHook.TraceOutputName);
+        var noisySrv = AnomalyHook.TryGetSrv(AnomalyHook.TraceOutputName) as ISrvBindable;
         Volatile.Write(ref _traceSrvOk, noisySrv != null ? 1 : 0);
         if (noisySrv == null)
         {
@@ -313,7 +314,7 @@ public static class SSGIPass
         // Retire history inputs before writing the next frame's depth and normals.
         Unbind(rc);
         CopyReplace(rc, MyGBuffer.Main.GBuffer1, _prevGBuffer1, shouldStretch: true, pointFilter: true);
-        var linearDepth = AnomalyHook.TryGetSrv("linearDepth");
+        var linearDepth = AnomalyHook.TryGetSrv("linearDepth") as ISrvBindable;
         if (linearDepth != null)
         {
             CopyReplace(rc, linearDepth, _prevDepthTex, shouldStretch: true, pointFilter: true);
@@ -410,7 +411,7 @@ public static class SSGIPass
 
     static void BindCommon(MyRenderContext rc)
     {
-        var linearDepth = AnomalyHook.TryGetSrv("linearDepth");
+        var linearDepth = AnomalyHook.TryGetSrv("linearDepth") as ISrvBindable;
         rc.SetRasterizerState(MyRasterizerStateManager.NocullRasterizerState);
         rc.SetDepthStencilState(MyDepthStencilStateManager.IgnoreDepthStencil);
         rc.PixelShader.SetSamplers(0, MySamplerStateManager.StandardSamplers);
@@ -427,7 +428,7 @@ public static class SSGIPass
     {
         IBorrowedRtvTexture tempRtv = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI.TempRtvDenoiser",
             _size.X, _size.Y, Format.R16G16B16A16_Float);
-        var velocity = AnomalyHook.TryGetSrv("velocity");
+        var velocity = AnomalyHook.TryGetSrv("velocity") as ISrvBindable;
 
         {
             IBorrowedRtvTexture tempRtvMomentsAndHistoryLength =

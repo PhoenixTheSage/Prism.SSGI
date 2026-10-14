@@ -13,6 +13,73 @@
       "binds": [
         { "catalog": "hiZ", "slot": 8 }
       ]
+    },
+    {
+      "id": "prism.ssgi.temporal",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Temporal.hlsl",
+      "compose": "PublishOnly",
+      "history": "ssgi.colorHistory",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.moments",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Moments.hlsl",
+      "compose": "PublishOnly",
+      "history": "ssgi.momentsHistory",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.atrous0",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.atrous1",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.atrous2",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.atrous3",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.composite",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Composite.hlsl",
+      "compose": "DirectAdd",
+      "scale": 1
+    },
+    {
+      "id": "prism.ssgi.prevDepth",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/PrevDepth.hlsl",
+      "compose": "PublishOnly",
+      "history": "ssgi.prevDepth",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.prevNormal",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/PrevNormal.hlsl",
+      "compose": "PublishOnly",
+      "history": "ssgi.prevNormal",
+      "scale": 0.5
     }
   ]
 }

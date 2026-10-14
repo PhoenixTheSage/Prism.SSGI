@@ -5,17 +5,15 @@ using ClientPlugin.Anomaly;
 using ClientPlugin.Config;
 using ClientPlugin.Gui;
 using ClientPlugin.RichHud;
-using ClientPlugin.SSGI;
 using Sandbox.Graphics.GUI;
 using VRage.FileSystem;
 using VRage.Input;
 using VRage.Plugins;
 using VRage.Utils;
-using VRageRender;
 
 #if !DEV
-[assembly: AssemblyVersion("2.1.1.0")]
-[assembly: AssemblyFileVersion("2.1.1.0")]
+[assembly: AssemblyVersion("2.2.0.0")]
+[assembly: AssemblyFileVersion("2.2.0.0")]
 #endif
 
 namespace ClientPlugin;
@@ -79,7 +77,7 @@ public class Plugin : IPlugin
             return;
         }
 
-        SSGIPass.Init();
+        SsgiDx11Host.Init();
         AnomalyTerminalHook.TryInstall();
     }
 
@@ -88,11 +86,15 @@ public class Plugin : IPlugin
     public void Update()
     {
         AnomalyTerminalHook.TryInstall();
+        if (Anomaly.AnomalyRenderer.AllowGuestWork)
+            SSGI.SsgiGuest.Tick();
+        else if (!Anomaly.AnomalyRenderer.LinuxRequiresGuest)
+            SsgiDx11Host.Poll();
         SSGIConfig?.FlushPending();
 #if DEV
         if (MyInput.Static.IsAnyShiftKeyPressed() && MyInput.Static.IsNewKeyPressed(MyKeys.OemPipe))
         {
-            MyRender11.EnqueueUpdate(() => SSGIPass.ReloadShaders());
+            SsgiDx11Host.Reload();
         }
 #endif
     }
