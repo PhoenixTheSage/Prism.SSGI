@@ -12,8 +12,8 @@ using VRage.Plugins;
 using VRage.Utils;
 
 #if !DEV
-[assembly: AssemblyVersion("2.2.0.0")]
-[assembly: AssemblyFileVersion("2.2.0.0")]
+[assembly: AssemblyVersion("2.2.1.0")]
+[assembly: AssemblyFileVersion("2.2.1.0")]
 #endif
 
 namespace ClientPlugin;
@@ -85,6 +85,7 @@ public class Plugin : IPlugin
 
     public void Update()
     {
+        PluginStatusPage.TryInstall("SSGI", SSGI.SSGIStatus.Show);
         AnomalyTerminalHook.TryInstall();
         if (Anomaly.AnomalyRenderer.AllowGuestWork)
             SSGI.SsgiGuest.Tick();
@@ -102,6 +103,7 @@ public class Plugin : IPlugin
     public void Dispose()
     {
         SSGIConfig?.FlushPending(true);
+        SatelliteAssembly.Reset();
     }
 
     static void EnsureConfig()

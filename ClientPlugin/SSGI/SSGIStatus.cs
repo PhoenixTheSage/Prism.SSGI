@@ -16,6 +16,7 @@ public static class SSGIStatus
         get
         {
             var sb = new StringBuilder();
+            sb.AppendLine(PluginStatusPage.RendererLine);
             AppendConfig(sb);
             sb.AppendLine();
             AppendAnomaly(sb);
@@ -66,7 +67,21 @@ public static class SSGIStatus
 
     static void AppendRuntime(StringBuilder sb)
     {
+        if (!AnomalyRenderer.AllowDx11Device)
+        {
+            sb.AppendLine(AnomalyRenderer.AllowGuestWork
+                ? "Runtime  Vulkan through Anomaly fullscreen programs"
+                : "Runtime  waiting for an operational Anomaly renderer");
+            foreach (var id in new[] { "prism.ssgi.temporal", "prism.ssgi.moments", "prism.ssgi.atrous0", "prism.ssgi.composite" })
+                sb.Append(id).Append("  ").AppendLine(PluginStatusPage.ProgramStatus(id));
+            return;
+        }
         var pass = Find("ClientPlugin.SSGI.SSGIPass");
+        if (pass == null)
+        {
+            sb.AppendLine("Runtime  DX11 companion pass unavailable (not loaded or initialization failed)");
+            return;
+        }
         int px = ReadInt(pass, "PassResolution", "X");
         int py = ReadInt(pass, "PassResolution", "Y");
         var scene = Find("ClientPlugin.Backend.SceneView");

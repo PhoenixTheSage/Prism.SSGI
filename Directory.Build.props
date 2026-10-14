@@ -1,4 +1,8 @@
 <Project>
+  <!-- Device and shared projects must have separate NuGet and intermediate state. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ClientPlugin.Dx11'">
+    <BaseIntermediateOutputPath>obj/Dx11/</BaseIntermediateOutputPath>
+  </PropertyGroup>
   <PropertyGroup>
     <Bin64></Bin64>
     <Pulsar></Pulsar>

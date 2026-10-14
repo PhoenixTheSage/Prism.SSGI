@@ -41,10 +41,10 @@ static class SsgiDx11Host
             return;
         if (dx11 == null)
         {
-            string path = Path.Combine(Path.GetDirectoryName(typeof(SsgiDx11Host).Assembly.Location) ?? "", "Prism.SSGI.Dx11.dll");
+            string path = SatelliteAssembly.Find("Prism.SSGI.Dx11.dll", typeof(SsgiDx11Host).Assembly);
             if (!File.Exists(path))
                 return;
-            dx11 = Assembly.LoadFrom(path);
+            dx11 = SatelliteAssembly.Load(path, typeof(SsgiDx11Host).Assembly);
         }
 
         dx11.GetType("ClientPlugin.SSGI.SsgiDx11Entry")?.GetMethod(method, BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);

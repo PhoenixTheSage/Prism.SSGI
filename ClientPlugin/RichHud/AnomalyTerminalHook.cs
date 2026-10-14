@@ -33,9 +33,6 @@ internal static class AnomalyTerminalHook
                 return false;
 
             PopulateSettings(settings);
-            var status = RequestPageUnlocked(StatusPage);
-            if (status != null)
-                PopulateStatus(status);
             _installed = true;
             MyLog.Default.WriteLine("SSGI: Rich HUD page under Anomaly Shaders / " + FolderTitle + " / " + SettingsPage);
             return true;
@@ -158,18 +155,6 @@ internal static class AnomalyTerminalHook
             (Func<int>)(() => config.DenoiserBlurIterations),
             (Action<int>)(v => Set(config, () => config.DenoiserBlurIterations = v)),
             "À-trous blur iterations.");
-        Invoke(type, page, "Button", "Show Status",
-            (Action)SSGIStatus.Show,
-            "Compile, Anomaly bind, pass size, and last skip reason.");
-    }
-
-    static void PopulateStatus(object page)
-    {
-        var type = page.GetType();
-        Invoke(type, page, "Category", "Debug");
-        Invoke(type, page, "Button", "Show Status",
-            (Action)SSGIStatus.Show,
-            "Compile, Anomaly bind, pass size, and last skip reason.");
     }
 
     static void Set(SSGIConfig config, Action apply)
