@@ -1,5 +1,11 @@
 # Prism.SSGI changelog
 
+## 2.2.2 — 2026-10-15
+
+- Disable guest temporal, moments, a-trous, composite, and history stages on DX11 while preserving the shared trace; native SVGF exclusively owns DX11 denoising/history.
+- Retry missing companion discovery, report initialization and lookup failures in logs and Status, and stop retrying ordinary initialization failures for the session.
+- Preserve propagation of genuine DXGI device failures and distinguish non-DX11 routes from successful initialization.
+
 ## 2.2.1 — 2026-10-14
 
 - Rebind the DX11 companion to the live Pulsar core rather than creating a second settings identity.

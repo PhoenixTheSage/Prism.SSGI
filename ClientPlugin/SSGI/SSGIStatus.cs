@@ -77,6 +77,7 @@ public static class SSGIStatus
             return;
         }
         var pass = Find("ClientPlugin.SSGI.SSGIPass");
+        sb.Append("Companion ").AppendLine(SsgiDx11Host.Status);
         if (pass == null)
         {
             sb.AppendLine("Runtime  DX11 companion pass unavailable (not loaded or initialization failed)");

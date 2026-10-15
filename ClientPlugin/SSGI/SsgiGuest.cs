@@ -24,6 +24,16 @@ static class SsgiGuest
     static bool announced;
     static readonly Random Rand = new Random();
 
+    public static void DisableForDx11()
+    {
+        // DX11 owns SVGF in C#. The json guest chain defaults on and shares
+        // history catalog names; running both would overwrite native history.
+        foreach (var id in new[] { TemporalId, MomentsId, CompositeId, PrevDepthId, PrevNormalId })
+            AnomalyHook.SetEnabled(id, false);
+        foreach (var id in AtrousIds)
+            AnomalyHook.SetEnabled(id, false);
+    }
+
     public static void Tick()
     {
         var config = ClientPlugin.Plugin.SSGIConfig;
