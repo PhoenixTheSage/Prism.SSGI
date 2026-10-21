@@ -19,10 +19,17 @@ static class SsgiGuest
     static readonly string[] AtrousIds =
     {
         "prism.ssgi.atrous0", "prism.ssgi.atrous1", "prism.ssgi.atrous2", "prism.ssgi.atrous3",
+        "prism.ssgi.atrous4", "prism.ssgi.atrous5", "prism.ssgi.atrous6",
     };
 
     static bool announced;
+    static bool preparationRegistered;
     static readonly Random Rand = new Random();
+    public static void Dispose()
+    {
+        if(preparationRegistered)AnomalyHook.UnregisterPortablePass("prism.ssgi.guest.prepare");
+        preparationRegistered=false;announced=false;
+    }
 
     public static void DisableForDx11()
     {
@@ -35,6 +42,12 @@ static class SsgiGuest
     }
 
     public static void Tick()
+    {
+        if(!preparationRegistered)
+            preparationRegistered=AnomalyHook.TryRegisterPortablePass("prism.ssgi.guest.prepare",_=>Prepare());
+    }
+
+    static void Prepare()
     {
         var config = ClientPlugin.Plugin.SSGIConfig;
         if (config == null)
@@ -50,7 +63,7 @@ static class SsgiGuest
             far = 1000000f;
         bool on = config.Enabled;
         float scale = config.ResolutionScale > 0f ? config.ResolutionScale : 0.5f;
-        int iterations = config.DenoiserBlurIterations < 1 ? 1 : config.DenoiserBlurIterations > 4 ? 4 : config.DenoiserBlurIterations;
+        int iterations = Math.Max(0,Math.Min(AtrousIds.Length,config.DenoiserBlurIterations));
         string source = TemporalId;
         AnomalyHook.RequestSrv(AnomalyHook.TraceProgramId, "hiZ", 8);
         AnomalyHook.SetScale(AnomalyHook.TraceProgramId, scale);
@@ -63,8 +76,8 @@ static class SsgiGuest
         AnomalyHook.SetEnabled(TemporalId, on);
         AnomalyHook.SetEnabled(MomentsId, on);
         var filter = new float[4];
-        filter[0] = 32f;
-        filter[1] = 1f;
+        filter[0] = Math.Max(0,Math.Min(1000,config.DenoiserMaxHistory));
+        filter[1] = 0f;
         AnomalyHook.SetUniforms(TemporalId, filter);
         AnomalyHook.SetUniforms(MomentsId, filter);
         for (int i = 0; i < AtrousIds.Length; i++)

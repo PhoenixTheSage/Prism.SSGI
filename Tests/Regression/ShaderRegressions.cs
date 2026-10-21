@@ -6,7 +6,7 @@ using Buffer = SharpDX.Direct3D11.Buffer;
 using Device = SharpDX.Direct3D11.Device;
 using Vector4 = System.Numerics.Vector4;
 
-static class ShaderRegressions
+static partial class ShaderRegressions
 {
     public static void Run(string root)
     {
@@ -56,6 +56,7 @@ static class ShaderRegressions
         finally { context.UnmapSubresource(staging, 0); stream.Dispose(); }
         Console.WriteLine("PASS: 50 production HLSL sector-mask cases and six sparse/coherent/outlier clamp cases on D3D11 WARP.");
         Temporal(device, root);
+        GuestTemporal(device,root);
     }
 
     static void Temporal(Device device, string root)

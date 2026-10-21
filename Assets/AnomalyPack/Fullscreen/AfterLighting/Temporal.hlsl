@@ -7,9 +7,8 @@
 #include "Denoise.hlsli"
 
 // t7 history color, t8 trace, t9 previous depth, t12 previous normal, t13 moments.
-// AnomalyPassUniform0.x is the history cap. .y skips the normal test: the guest
-// camera matrix is a translation, so a view-normal reprojection would reject
-// every sample after a turn.
+// AnomalyPassUniform0.x is the history cap. Normals use world space so a
+// camera turn preserves matching surfaces and still rejects disocclusion.
 
 float4 __pixel_shader(float4 position : SV_Position, float2 uv : TEXCOORD0) : SV_Target
 {
@@ -18,7 +17,7 @@ float4 __pixel_shader(float4 position : SV_Position, float2 uv : TEXCOORD0) : SV
     if (!SsgiForeground(linearZ))
         return 0;
 
-    float maxHistory = max(AnomalyPassUniform0.x, 1.0);
+    float maxHistory = max(AnomalyPassUniform0.x, 0.0);
     bool skipNormal = AnomalyPassUniform0.y > 0.5;
     uint2 scenePixel = SsgiScenePixel(pixelPos);
     float2 motionPass = AnomalyVelocityBuffer[scenePixel] * (AnomalyPassSize / max(AnomalySceneSize, float2(1, 1)));
@@ -30,7 +29,7 @@ float4 __pixel_shader(float4 position : SV_Position, float2 uv : TEXCOORD0) : SV
         (1 - fracPos.x) * (1 - fracPos.y), fracPos.x * (1 - fracPos.y),
         (1 - fracPos.x) * fracPos.y, fracPos.x * fracPos.y
     };
-    float3 viewNormal = SsgiNormalAt(int2(pixelPos));
+    float3 viewNormal = normalize(AnomalyViewToWorldAt0(SsgiNormalAt(int2(pixelPos))));
     float weightSum = 0;
     float4 historySum = 0;
     float2 momentSum = 0;
@@ -48,7 +47,7 @@ float4 __pixel_shader(float4 position : SV_Position, float2 uv : TEXCOORD0) : SV
             continue;
         if (!skipNormal)
         {
-            float3 previous = SsgiUnpackNormal(AnomalyPackSrv3[samplePos].xy);
+            float3 previous = AnomalyPackSrv3[samplePos].xyz;
             if (dot(previous, viewNormal) < 0.2)
                 continue;
         }

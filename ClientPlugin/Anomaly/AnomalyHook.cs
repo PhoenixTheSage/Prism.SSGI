@@ -39,6 +39,7 @@ internal static class AnomalyHook
     static MethodInfo _tryGetProgramStatus;
     static MethodInfo _requestLitMips;
     static MethodInfo _registerOwned;
+    static MethodInfo _registerPortable;
     static MethodInfo _catalogActive;
     static MethodInfo _catalogPublish;
     static MethodInfo _registerLifetime;
@@ -275,6 +276,19 @@ internal static class AnomalyHook
         }
     }
 
+    public static bool TryRegisterPortablePass(string id,Action<object> prepare)
+    {
+        Probe();
+        if(_registerPortable==null)return false;
+        _registerPortable.Invoke(null,new object[]{id,"AfterLighting",0,0,prepare,0});
+        return true;
+    }
+    public static void UnregisterPortablePass(string id)
+    {
+        if(_registerPortable==null)return;
+        FindStatic(_registerPortable.DeclaringType,"Unregister",typeof(string))?.Invoke(null,new object[]{id});
+    }
+
     public static void RegisterLifetime(Action onResolutionChanged, Action onDeviceEnd)
     {
         Probe();
@@ -506,6 +520,8 @@ internal static class AnomalyHook
 
                 if (owned != null && _registerOwned == null)
                     _registerOwned = FindOwnedRegister(owned);
+                if(owned!=null && _registerPortable==null)
+                    _registerPortable=FindStatic(owned,"RegisterPortable",typeof(string),typeof(string),typeof(int),typeof(int),typeof(Action<object>),typeof(int));
 
                 if (catalog != null)
                 {

@@ -102,6 +102,7 @@ public class Plugin : IPlugin
 
     public void Dispose()
     {
+        SSGI.SsgiGuest.Dispose();
         SSGIConfig?.FlushPending(true);
         SatelliteAssembly.Reset();
     }

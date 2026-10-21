@@ -59,6 +59,27 @@
       "scale": 0.5
     },
     {
+      "id": "prism.ssgi.atrous4",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.atrous5",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
+      "id": "prism.ssgi.atrous6",
+      "slot": "AfterLighting",
+      "file": "Fullscreen/AfterLighting/Atrous.hlsl",
+      "compose": "PublishOnly",
+      "scale": 0.5
+    },
+    {
       "id": "prism.ssgi.composite",
       "slot": "AfterLighting",
       "file": "Fullscreen/AfterLighting/Composite.hlsl",
