@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 var root = args.Length > 0 ? Path.GetFullPath(args[0]) : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 ConfigRegressions.Run();
 LifecycleFixture.LifecycleRegression.Run();
+GuestChainRegressions.Run(root);
 ShaderRegressions.Run(root);
 Console.WriteLine("PASS: SSGI config, extracted lifecycle methods, and production HLSL helpers on D3D11 WARP.");
 

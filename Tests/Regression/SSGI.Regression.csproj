@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../ClientPlugin/Config/*.cs" Link="Production/%(Filename)%(Extension)" />
+    <Compile Include="../../ClientPlugin/SSGI/SsgiGuest.cs" Link="Production/SsgiGuest.cs" />
     <Compile Include="../../ClientPlugin/Common/FileShaderCompiler.cs" Link="Production/FileShaderCompiler.cs" />
     <Compile Include="../../ClientPlugin/Common/IShaderCompiler.cs" Link="Production/IShaderCompiler.cs" />
     <Compile Include="obj/Lifecycle.cs" />

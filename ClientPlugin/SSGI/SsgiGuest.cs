@@ -14,6 +14,7 @@ static class SsgiGuest
     const string TemporalId = "prism.ssgi.temporal";
     const string MomentsId = "prism.ssgi.moments";
     const string CompositeId = "prism.ssgi.composite";
+    const string ColorHistoryId = "prism.ssgi.colorHistory";
     const string PrevDepthId = "prism.ssgi.prevDepth";
     const string PrevNormalId = "prism.ssgi.prevNormal";
     static readonly string[] AtrousIds =
@@ -35,7 +36,7 @@ static class SsgiGuest
     {
         // DX11 owns SVGF in C#. The json guest chain defaults on and shares
         // history catalog names; running both would overwrite native history.
-        foreach (var id in new[] { TemporalId, MomentsId, CompositeId, PrevDepthId, PrevNormalId })
+        foreach (var id in new[] { TemporalId, MomentsId, CompositeId, ColorHistoryId, PrevDepthId, PrevNormalId })
             AnomalyHook.SetEnabled(id, false);
         foreach (var id in AtrousIds)
             AnomalyHook.SetEnabled(id, false);
@@ -96,6 +97,11 @@ static class SsgiGuest
         }
         AnomalyHook.RequestSrv(CompositeId, "pass." + source, 7);
         AnomalyHook.SetEnabled(CompositeId, on);
+        // DX11 retains the final spatially filtered color, not the temporal
+        // intermediate. A separate owner also survives iteration-count changes.
+        AnomalyHook.RequestSrv(ColorHistoryId, "pass." + source, 7);
+        AnomalyHook.SetScale(ColorHistoryId, scale);
+        AnomalyHook.SetEnabled(ColorHistoryId, on);
         AnomalyHook.SetScale(PrevDepthId, scale);
         AnomalyHook.SetScale(PrevNormalId, scale);
         AnomalyHook.SetEnabled(PrevDepthId, on);

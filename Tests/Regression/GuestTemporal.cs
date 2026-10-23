@@ -10,6 +10,7 @@ static partial class ShaderRegressions
     static void GuestTemporal(Device device,string root)
     {
         string pack=Path.Combine(root,"Assets/AnomalyPack/Fullscreen/AfterLighting");
+        GuestHistoryCopy(device, pack);
         string anomaly=File.ReadAllText(Path.Combine(root,"../Anomaly/Assets/Shaders/AnomalyFullscreen.hlsli"));
         string preamble=@"
 cbuffer Settings:register(b0){row_major float4x4 AnomalyCameraToWorld;float4 AnomalyPassUniform0;}
@@ -64,5 +65,33 @@ RWStructuredBuffer<float4> Output:register(u0);
             }
         }
         Console.WriteLine("PASS: production guest Temporal/Moments on WARP: exact ages, camera rotation, normal rejection, first frame and 0/16/64 history caps.");
+    }
+
+    static void GuestHistoryCopy(Device device, string pack)
+    {
+        string source = "Texture2D<float4> AnomalyPackSrv0:register(t7);RWStructuredBuffer<float4> Output:register(u0);" +
+            Function(File.ReadAllText(Path.Combine(pack, "ColorHistory.hlsl")), "__pixel_shader") +
+            "[numthreads(1,1,1)]void main(uint3 id:SV_DispatchThreadID){Output[id.y*3+id.x]=__pixel_shader(float4(id.xy+.5,0,1),(id.xy+.5)/3);}";
+        using var bytecode = ShaderBytecode.Compile(source, "main", "cs_5_0", ShaderFlags.OptimizationLevel3);
+        using var shader = new ComputeShader(device, bytecode);
+        var pixels = Enumerable.Range(0, 9).Select(i => new Vector4(i * 3.25f, i * .5f, i * .125f, .01f + i)).ToArray();
+        using var input = Texture(device, pixels);
+        using var srv = new ShaderResourceView(device, input);
+        using var output = new Buffer(device, new BufferDescription { SizeInBytes = 144, StructureByteStride = 16, BindFlags = BindFlags.UnorderedAccess, OptionFlags = ResourceOptionFlags.BufferStructured, Usage = ResourceUsage.Default });
+        using var uav = new UnorderedAccessView(device, output);
+        using var staging = new Buffer(device, new BufferDescription { SizeInBytes = 144, CpuAccessFlags = CpuAccessFlags.Read, Usage = ResourceUsage.Staging });
+        var context = device.ImmediateContext;
+        context.ComputeShader.Set(shader); context.ComputeShader.SetShaderResource(7, srv);
+        context.ComputeShader.SetUnorderedAccessView(0, uav); context.Dispatch(3, 3, 1);
+        context.ComputeShader.SetUnorderedAccessView(0, null); context.ComputeShader.SetShaderResource(7, null);
+        context.ComputeShader.Set(null); context.CopyResource(output, staging);
+        context.MapSubresource(staging, MapMode.Read, MapFlags.None, out DataStream stream);
+        try
+        {
+            for (int i = 0; i < pixels.Length; i++)
+                if (stream.Read<Vector4>() != pixels[i]) throw new Exception("Filtered history pixel/variance changed at " + i);
+        }
+        finally { context.UnmapSubresource(staging, 0); stream.Dispose(); }
+        Console.WriteLine("PASS: production ColorHistory shader preserves nine distinct HDR radiance/variance pixels on WARP.");
     }
 }

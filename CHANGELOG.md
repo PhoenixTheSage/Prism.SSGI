@@ -1,5 +1,11 @@
 # Prism.SSGI changelog
 
+## 2.2.3 — 2026-10-23
+
+- Prepare Vulkan uniforms from portable render callbacks and restore temporal rejection.
+- Copy the final enabled spatial-filter result, or Temporal at zero iterations, into one stable color-history owner across scale, disable and DX11 handoff.
+- Add production adapter and GPU history-copy regressions.
+
 ## 2.2.2 — 2026-10-15
 
 - Disable guest temporal, moments, a-trous, composite, and history stages on DX11 while preserving the shared trace; native SVGF exclusively owns DX11 denoising/history.
