@@ -59,10 +59,18 @@ static class SsgiGuest
             VRage.Utils.MyLog.Default.WriteLine("SSGI: Vulkan SVGF runs on the guest bus and adds into world HDR.");
         }
 
+        bool on = config.Enabled;
+        // Off: the full settings pass runs once; afterwards only the disable flags are kept (a pack reload
+        // re-registers its programs enabled). The full pass cost about 0.2 ms a frame while SSGI was off.
+        if (!on && offApplied)
+        {
+            DisableAll();
+            return;
+        }
+        offApplied = !on;
         float far = Float(Frame(), "FarClip");
         if (far < 1f)
             far = 1000000f;
-        bool on = config.Enabled;
         float scale = config.ResolutionScale > 0f ? config.ResolutionScale : 0.5f;
         int iterations = Math.Max(0,Math.Min(AtrousIds.Length,config.DenoiserBlurIterations));
         string source = TemporalId;
@@ -106,6 +114,20 @@ static class SsgiGuest
         AnomalyHook.SetScale(PrevNormalId, scale);
         AnomalyHook.SetEnabled(PrevDepthId, on);
         AnomalyHook.SetEnabled(PrevNormalId, on);
+    }
+
+    static bool offApplied;
+    static void DisableAll()
+    {
+        AnomalyHook.SetEnabled(AnomalyHook.TraceProgramId, false);
+        AnomalyHook.SetEnabled(TemporalId, false);
+        AnomalyHook.SetEnabled(MomentsId, false);
+        foreach (var id in AtrousIds)
+            AnomalyHook.SetEnabled(id, false);
+        AnomalyHook.SetEnabled(CompositeId, false);
+        AnomalyHook.SetEnabled(ColorHistoryId, false);
+        AnomalyHook.SetEnabled(PrevDepthId, false);
+        AnomalyHook.SetEnabled(PrevNormalId, false);
     }
 
     static void BindHistory(string program, string trace)
